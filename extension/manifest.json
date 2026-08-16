@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Zdress — Virtual Try-On for Myntra",
+  "name": "Zdress",
   "version": "1.0.0",
-  "description": "See yourself in any Myntra product without leaving the search results. Powered by YouCam Apparel VTO.",
+  "description": "See yourself in anything you find while shopping, without leaving the page. Powered by YouCam Apparel VTO.",
   "permissions": ["storage", "unlimitedStorage", "sidePanel"],
   "host_permissions": ["http://localhost:3000/*"],
   "background": {

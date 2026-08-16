@@ -2,9 +2,10 @@
 
 <img src="extension/icons/icon128.png" width="72" alt="Zdress">
 
-A Chrome extension that puts a **"Try this look"** button on every product across India's
-biggest fashion sites — **Myntra, AJIO, Nykaa Fashion, Flipkart and Tata CLiQ**. Upload your
-photo once; click any product and see *yourself* wearing it — without leaving the results page.
+A Chrome extension that puts a **"Try this look"** button on every product across ten fashion
+retailers — **Myntra, AJIO, Flipkart, Amazon, Nykaa Fashion, SNITCH, Bewakoof, Max Fashion,
+Libas and Tata CLiQ**. Upload your photo once; click any product and the card's photo becomes
+*you* wearing it, without leaving the page.
 
 Built for the [YouCam API Hackathon](https://youcam-api.devpost.com/) using
 **YouCam Apparel Virtual Try-On** and the **OpenAI SDK**.
