@@ -72,8 +72,8 @@ function showSettings() {
 
 $('tabTry').addEventListener('click', () => showTab('Try'));
 $('tabSaved').addEventListener('click', () => showTab('Saved'));
-$('btnSettings').addEventListener('click', showSettings);
 $('goSettings').addEventListener('click', showSettings);
+$('openSettings').addEventListener('click', showSettings);
 $('backFromSettings').addEventListener('click', () => showTab(lastTab));
 
 /* ------------------------------------------------------------------ photo */
@@ -83,14 +83,15 @@ function showPhoto(dataUrl) {
   $('preview').hidden = false;
   $('ph').hidden = true;
   $('replace').hidden = false;
-  $('avatar').src = dataUrl;
-  $('avatar').hidden = false;
-  $('avatarFallback').hidden = true;
 }
 
-/** The try-on tab prompts for setup only while there is no photo. */
+/**
+ * First run shows the welcome card and nothing else; once a photo exists the
+ * card gives way to a quiet link, since changing it is rare.
+ */
 function reflectPhotoState(hasPhoto) {
   $('needPhoto').hidden = hasPhoto;
+  $('photoLinkRow').hidden = !hasPhoto;
 }
 
 chrome.storage.local.get(['personFileId', 'personPreview']).then(({ personFileId, personPreview }) => {
@@ -267,14 +268,12 @@ async function loadLibrary() {
   try {
     const res = await fetch(`${API}/api/library`);
     library = await res.json();
-    $('foot').textContent = 'Renders are stored by your local Zdress server.';
     renderLibrary();
   } catch {
     $('looks').innerHTML = '';
     $('looksEmpty').hidden = false;
     $('looksEmpty').innerHTML =
       `${icon('plug', 20)}<p>Can’t reach the Zdress server, so saved looks aren’t available. Start it with <strong>npm start</strong> in <strong>server/</strong>.</p>`;
-    $('foot').textContent = 'Server offline — saved looks unavailable.';
   }
 }
 
