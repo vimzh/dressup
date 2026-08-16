@@ -73,6 +73,18 @@ garment — and pins come in two forms, both handled:
   far the more common fashion pin. YouCam cannot take that as one garment, and screening rightly
   calls it a collage.
 
+### Only what the pin actually shows
+
+Plenty of pins show part of a look — cropped at the waist, or a board with just a top and
+shoes. Applying "the whole outfit" to those is how you get invented clothing: forcing
+`full_body` on a waist-up jacket shot leaves YouCam with no lower-body reference, and it fills
+the gap itself. Tested, it returned cropped black leggings that were nowhere in the source.
+
+So screening reports which body regions the image *actually shows a garment for*, and the
+whole-look upgrade only happens when both halves are really there. A partial pin transfers the
+part it has and leaves the rest of what you're wearing alone. Shoes are swapped only when the
+pin actually shows footwear.
+
 A moodboard is still an outfit; it is just pre-separated. So the wearable pieces are located,
 cut out, and run through the same chain that composes a tick-built fit. On the pin used to build
 this, that found three pieces — tee, denim shorts, trainers — and correctly skipped the cap and

@@ -152,15 +152,29 @@ app.post('/api/tryon', async (req, res) => {
     }
 
     /*
-     * 4. Whole-look sources (a Pinterest pin) are an outfit on a person, not a
-     *    product with one slot. Applying everything YouCam supports is the point
-     *    of the click there, so the classifier's slot is overridden — but only
-     *    after screening has confirmed it is apparel at all.
+     * 4. Whole-look sources (a Pinterest pin) are a look rather than a product
+     *    with one slot, so as much of the outfit as possible is applied.
+     *
+     *    "As much as possible" is the important part: forcing full_body on a pin
+     *    that is cropped at the waist gives YouCam no lower-body reference, and
+     *    it fills the gap by inventing one — a waist-up jacket shot came back
+     *    with cropped leggings that were nowhere in the source. So the upgrade
+     *    only happens when screening confirms both halves are actually visible,
+     *    and shoes are only swapped when the source actually shows footwear.
      */
     const wholeLook = mode === 'whole_look';
-    const category = wholeLook ? 'full_body' : garment.category || 'auto';
-    const changeShoes = wholeLook || garment.category === 'shoes';
-    if (wholeLook) log(`  whole-look: category ${garment.category} -> full_body, change_shoes on`);
+    const covers = garment.covers || [];
+    const showsFullLook = covers.includes('upper_body') && covers.includes('lower_body');
+
+    const category = wholeLook && showsFullLook ? 'full_body' : garment.category || 'auto';
+    const changeShoes = wholeLook ? covers.includes('shoes') : garment.category === 'shoes';
+
+    if (wholeLook) {
+      log(
+        `  whole-look: covers [${covers.join(',')}] -> ${category}` +
+          `${changeShoes ? ' +shoes' : ''}${showsFullLook ? '' : ' (partial look, not upgraded)'}`
+      );
+    }
 
     // 5. Hand the bytes to YouCam.
     const garmentFileId = await uploadImage(garmentBuffer, {

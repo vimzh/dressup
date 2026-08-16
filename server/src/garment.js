@@ -35,7 +35,7 @@ function getClient() {
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['is_apparel', 'category', 'confidence', 'reason', 'description', 'source_type'],
+  required: ['is_apparel', 'category', 'confidence', 'reason', 'description', 'source_type', 'covers'],
   properties: {
     is_apparel: {
       type: 'boolean',
@@ -54,6 +54,12 @@ const SCHEMA = {
     description: {
       type: 'string',
       description: 'A brief description of the garment, e.g. "navy ribbed training tank".',
+    },
+    covers: {
+      type: 'array',
+      items: { type: 'string', enum: ['upper_body', 'lower_body', 'shoes'] },
+      description:
+        'Which body regions this image actually shows a garment for. Only what is visible — never what a complete outfit would normally include.',
     },
     source_type: {
       type: 'string',
@@ -98,6 +104,16 @@ before rendering:
   - on_model_angled      — worn at a three-quarter or side angle, or partly hidden by arms,
                            hair or props.
   - cluttered_or_cropped — busy background, heavy styling, or the garment is cut off.
+
+Also list, in "covers", which body regions this image ACTUALLY SHOWS a garment for:
+  - upper_body — a top of any kind is visible
+  - lower_body — trousers, shorts, a skirt or the lower half of a dress is visible
+  - shoes      — footwear is visible
+
+Report only what you can see. A photo cropped at the waist covers upper_body alone, even
+though the person is obviously wearing something below. A flat-lay of one t-shirt covers
+upper_body alone. This list decides which parts of a look can be transferred, so guessing
+would put clothing on someone that was never in the picture.
 
 Keep "reason" to one short sentence a shopper would understand, naming the garment.
 Keep "description" to a short noun phrase: colour, material or pattern, then garment.`;
@@ -148,6 +164,7 @@ export async function inspectGarment(imageDataUrl, productTitle = '') {
     reason: parsed.reason,
     description: parsed.description,
     sourceType: parsed.source_type,
+    covers: parsed.covers || [],
   };
 }
 
