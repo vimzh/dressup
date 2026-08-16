@@ -19,6 +19,7 @@ import * as library from './library.js';
 import { prepareGarment } from './prep.js';
 import { splitCollage } from './collage.js';
 import { dedupe, gateStats } from './limiter.js';
+import * as stylist from './stylist.js';
 
 const app = express();
 const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -380,6 +381,80 @@ app.post('/api/outfit', async (req, res) => {
   } catch (err) {
     log('outfit failed:', err.message);
     res.status(500).json({ error: err.message, code: 'TRYON_FAILED' });
+  }
+});
+
+/* --------------------------------------------------------- expert opinion */
+
+/*
+ * "Is this actually any good on me?" is the question a try-on raises and does
+ * not answer. This does: one call over the render itself for the opening read,
+ * then a short back-and-forth for whatever the user asks next.
+ *
+ * The subject is always the render, never the product photo — advice about a
+ * garment on a catalogue model is advice about the model.
+ *
+ * Opinions are cached by render, because opening a saved look twice should not
+ * cost twice, and because a stylist who changes their mind between two views of
+ * the same picture reads as broken rather than thoughtful.
+ */
+const opinionCache = new Map();
+
+/** Resolves whatever the caller pointed at into image bytes plus its context. */
+async function adviceSubject({ lookId, resultUrl, context = {} }) {
+  if (lookId) {
+    const { look, image } = await library.getLookImage(lookId);
+    return {
+      key: `look:${lookId}`,
+      dataUrl: toDataUrl(image, 'image/jpeg'),
+      context: {
+        title: look.title,
+        pieces: look.pieces?.length ? look.pieces : (look.products || []).map((p) => p.title).filter(Boolean),
+        category: look.category,
+        site: look.site,
+      },
+    };
+  }
+
+  if (!resultUrl) throw new library.BadRequest('Nothing to look at — no render was supplied.');
+
+  const raw = await fetchImage(resultUrl, 'that render').catch((err) => {
+    // Pre-signed YouCam URLs die after two hours, and "HTTP 403" sends the user
+    // looking for a bug that isn't there.
+    if (/HTTP 403/.test(err.message)) throw new library.BadRequest('That render has expired — try it on again, then ask.');
+    throw err;
+  });
+  const { buffer, contentType } = await normalizeImage(raw);
+  return { key: `render:${resultUrl}`, dataUrl: toDataUrl(buffer, contentType), context };
+}
+
+app.post('/api/advice', async (req, res) => {
+  const { lookId, resultUrl, context, messages = [], opinion = null } = req.body || {};
+
+  try {
+    const subject = await adviceSubject({ lookId, resultUrl, context });
+
+    // A follow-up question. Not cached — the whole point is that it's new.
+    if (Array.isArray(messages) && messages.length) {
+      const question = messages[messages.length - 1]?.content || '';
+      log(`advice: "${String(question).slice(0, 60)}"`);
+      return res.json({ answer: await stylist.reply(subject.dataUrl, subject.context, opinion, messages) });
+    }
+
+    if (opinionCache.has(subject.key)) return res.json({ opinion: opinionCache.get(subject.key) });
+
+    // Two clicks on the same button, or the panel and the page asking together,
+    // share one call rather than racing to fill the cache twice.
+    const out = await dedupe(`advice:${subject.key}`, () => stylist.opinion(subject.dataUrl, subject.context));
+
+    if (opinionCache.size > 200) opinionCache.clear();
+    opinionCache.set(subject.key, out);
+
+    log(`advice: ${String(subject.context.title || '').slice(0, 40)} -> "${out.headline}"`);
+    res.json({ opinion: out });
+  } catch (err) {
+    log('advice failed:', err.message);
+    res.status(err?.status || 500).json({ error: err.message, code: 'ADVICE_FAILED' });
   }
 });
 

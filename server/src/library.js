@@ -144,7 +144,12 @@ export async function saveLook({
    */
   const savedProducts = [];
   for (const [i, p] of products.slice(0, 4).entries()) {
-    const entry = { title: String(p?.title || '').slice(0, 160), url: p?.url || '', site: p?.site || site };
+    const entry = {
+      title: String(p?.title || '').slice(0, 160),
+      url: p?.url || '',
+      site: p?.site || site,
+      category: String(p?.category || '').slice(0, 40),
+    };
     if (p?.image) {
       try {
         const r = await fetch(p.image);
@@ -182,6 +187,23 @@ export async function saveLook({
     db.looks.unshift(look);
     return { ...look, imageUrl: `/looks/${look.id}.jpg` };
   });
+}
+
+/**
+ * A saved look and its render, for anything that needs the picture back —
+ * the stylist opinion asks about the render itself, not the product photo.
+ * @returns {Promise<{look: object, image: Buffer}>}
+ */
+export async function getLookImage(lookId) {
+  const db = await read();
+  const look = db.looks.find((l) => l.id === lookId);
+  if (!look) throw new BadRequest('That look is no longer saved.');
+
+  try {
+    return { look, image: await fs.readFile(path.join(IMAGES, `${lookId}.jpg`)) };
+  } catch {
+    throw new BadRequest('That look’s image is missing from disk.');
+  }
 }
 
 export function moveLook(lookId, collectionId) {

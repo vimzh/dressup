@@ -94,6 +94,8 @@
     undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
     bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    sparkle:
+      '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
   };
 
   const icon = (name, size = 14) =>
@@ -189,6 +191,7 @@
       <img class="zdress-render-img" src="${esc(resultUrl)}" alt="You wearing ${esc(payload.title)}">
       <span class="zdress-onyou">${icon('check', 11)}On you</span>
       <div class="zdress-render-actions">
+        <button class="zdress-act" data-act="ask" title="Expert opinion" aria-label="Ask a stylist about this look">${icon('sparkle', 13)}</button>
         <button class="zdress-act" data-act="save" title="Save look" aria-label="Save look">${icon('bookmark', 13)}</button>
         <button class="zdress-act" data-act="revert" title="Show original product" aria-label="Show original product">${icon('undo', 13)}</button>
       </div>`;
@@ -200,6 +203,7 @@
       e.stopPropagation();
       if (act === 'revert') revertRender(card, payload.garmentImageUrl);
       if (act === 'save') saveRender(e.target.closest('.zdress-act'), payload, resultUrl);
+      if (act === 'ask') askStylist(payload, resultUrl);
     });
 
     /*
@@ -237,6 +241,20 @@
     } else {
       btn.disabled = false;
       toast(res?.error || 'Could not save that look.');
+    }
+  }
+
+  /*
+   * A card is the wrong place to hold a conversation — it's 200px wide and sits
+   * inside someone else's grid. So the render is handed to the side panel, which
+   * opens on the Try on tab with the stylist already reading it.
+   */
+  async function askStylist(payload, resultUrl) {
+    const res = await chrome.runtime
+      .sendMessage({ type: 'ASK_STYLIST', payload, resultUrl })
+      .catch(() => null);
+    if (!res?.ok) {
+      toast(res?.error || 'Zdress was reloaded — refresh the page and try again.');
     }
   }
 
@@ -292,7 +310,15 @@
         garmentImageUrl: imageUrl,
         // Kept so a saved look stays shoppable weeks later, once the render
         // itself is just a picture and the listing is what you actually want.
-        products: [{ title: info.title, url: absUrl(site.link(card)), image: imageUrl, site: site.label }],
+        products: [
+          {
+            title: info.title,
+            url: absUrl(site.link(card)),
+            image: imageUrl,
+            site: site.label,
+            category: res.garment?.category || '',
+          },
+        ],
       };
       rememberRender(imageUrl, { resultUrl: res.resultUrl, payload });
       mountRender(card, { resultUrl: res.resultUrl, payload });

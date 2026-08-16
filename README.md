@@ -121,6 +121,40 @@ plainly instead of rendering broken thumbnails.
 
 Deleting a collection keeps its looks — they fall back to *Unsorted* rather than vanishing.
 
+## Expert opinion
+
+A try-on answers *what does this look like on me* and immediately raises the one it can't:
+**is it any good?** So every render carries an **Expert opinion** button — on the swapped card,
+under a rendered fit, and on any saved look you open.
+
+One click returns a stylist's read on the render itself (not the catalogue photo — advice about
+a garment on a model is advice about the model), in the three parts a shopper actually wants:
+
+- **how it looks** — cut, silhouette, what it reads as;
+- **how it suits you** — where it breaks, what it balances or exaggerates, what to change;
+- **colours that work** — three or four pairings, each with a swatch and a reason.
+
+Underneath is an input, because the useful question is usually the specific one: *what trousers
+go with this?*, *what shoes work here?*, *can I dress this up?* Follow-ups get the render, the
+context and the opinion already on screen, so the answer builds on it instead of restating it.
+
+Two rules are baked into the prompt and matter more than the format:
+
+- **It judges the clothes, never the person.** The image is the user's own body. Line,
+  proportion and balance are fair game; size and shape as things to fix are not.
+- **It is allowed to say no.** A stylist who only ever says "gorgeous" is worth nothing, so it
+  is told to name what fights — and on the test render it opened with "easy casual set, but the
+  shorts feel too loungey", which is the point.
+
+Opinions are cached per render: re-opening a saved look is instant and free, and a stylist who
+changes their mind between two views of the same picture reads as broken rather than thoughtful.
+The opening read costs one call (~5s); each follow-up costs one more (~2s). Screening is tuned
+for latency because a render waits on it — this doesn't, so it runs at higher image detail and
+effort, on its own `OPENAI_STYLIST_MODEL`.
+
+Asking from a card in the grid hands the render to the side panel and opens it, because a
+200px tile inside someone else's page is the wrong place to hold a conversation.
+
 ## How it works
 
 ```
@@ -160,6 +194,9 @@ Crucially it is given the **listing title alongside the image**, and told to tre
 as authoritative. This is what makes the categorisation reliable: an "HRX Rapid Dry Running
 Tracksuit" photographed with the jacket dominating the frame classified as `upper_body` at
 0.62 confidence from the image alone, and as `full_body` at 0.98 once the title was supplied.
+
+After the render it does the opposite job: the **expert opinion** above is an OpenAI call over
+the finished image, and the only one here that is asked for judgement rather than a gate.
 
 Screening sits on the critical path in front of a 10–30s render, so it is tuned for latency —
 a mini model at low reasoning effort with a low-detail image. Measured on real Myntra
@@ -219,9 +256,10 @@ Rendering takes roughly 10–30 seconds.
 
 ```
 server/
-  src/index.js            Express routes: /api/person, /api/tryon, /api/outfit
+  src/index.js            Express routes: /api/person, /api/tryon, /api/outfit, /api/advice
   src/youcam.js           YouCam client — upload, create task, poll
   src/garment.js          OpenAI vision pre-flight (garment + person photo)
+  src/stylist.js          The expert opinion — structured read, then follow-up chat
   src/image.js            Format/size normalisation (AVIF, HEIC, oversized, alpha)
   src/library.js          Saved looks + collections (files on disk)
   tools/convert-images.js Standalone converter, for files you already have

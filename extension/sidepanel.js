@@ -30,6 +30,8 @@ const ICONS = {
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   'folder-minus': '<path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  send: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  'arrow-out': '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
 };
 
 const icon = (name, size = 14) =>
@@ -57,6 +59,7 @@ let lastTab = 'Try';
 function showTab(which) {
   lastTab = which;
   closeMenu();
+  closeSheet();
   for (const [name, [tab, pane]] of Object.entries(panes)) {
     const on = name === which;
     tab.setAttribute('aria-selected', String(on));
@@ -323,17 +326,28 @@ function showFitResult(res) {
     pieces: (res.applied || []).map((a) => a.title),
     products: lastSelection
       .filter((i) => appliedTitles.has(i.title))
-      .map((i) => ({ title: i.title, url: i.productUrl || '', image: i.imageUrl, site: i.site })),
+      .map((i) => ({
+        title: i.title,
+        url: i.productUrl || '',
+        image: i.imageUrl,
+        site: i.site,
+        // The slot is what the saved look is listed by later — "Top", "Bottom"
+        // — so it travels with the piece rather than being re-derived.
+        category: i.category || '',
+      })),
   };
 
   $('saveFit').disabled = false;
   $('saveFitLabel').textContent = 'Save look';
   $('fitResult').hidden = false;
+  // A new render is a new subject; the previous thread was about a different fit.
+  fitStylist.reset();
   setStatus($('fitStatus'), '', '');
 }
 
 $('dismissFit').addEventListener('click', () => {
   $('fitResult').hidden = true;
+  fitStylist.reset();
   fitPayload = null;
 });
 
@@ -347,6 +361,215 @@ $('saveFit').addEventListener('click', async () => {
     $('saveFit').disabled = false;
     setStatus($('fitStatus'), res?.error || 'Could not save that look.', 'err');
   }
+});
+
+/* ---------------------------------------------------------------- stylist */
+
+/*
+ * A try-on answers "what does this look like on me" and immediately raises the
+ * question it can't answer: is it any good? So every render — fresh or saved —
+ * carries one button that asks a stylist, and the answer is a conversation
+ * rather than a verdict: the first reply is the standard three (how it looks,
+ * how it sits on you, what to wear it with), and the input underneath takes
+ * whatever you actually wanted to know.
+ *
+ * State lives per instance, so the fit result and an opened saved look each
+ * keep their own thread and neither re-asks when you flip back to it.
+ */
+
+const SEEDS = ['What trousers go with this?', 'What shoes work here?', 'Can I dress this up?'];
+
+function createStylist(host) {
+  let subject = null; // { lookId } | { resultUrl, context }
+  let opinion = null;
+  let messages = [];
+  let busy = false;
+  let error = '';
+  let wantFocus = false;
+
+  host.className = 'advice';
+  host.hidden = true;
+
+  const sameSubject = (next) =>
+    subject && (next.lookId ? next.lookId === subject.lookId : next.resultUrl === subject.resultUrl);
+
+  const thinking = (label) =>
+    `<div class="thinking"><i></i><i style="animation-delay:.15s"></i><i style="animation-delay:.3s"></i><span>${esc(label)}</span></div>`;
+
+  function opinionHtml() {
+    const swatches = (opinion.colors || [])
+      .filter((c) => c.name)
+      .map(
+        (c) =>
+          `<span class="sw"${c.why ? ` title="${esc(c.why)}"` : ''}>${
+            c.hex ? `<i style="background:${esc(c.hex)}"></i>` : ''
+          }${esc(c.name)}</span>`
+      )
+      .join('');
+    const tips = (opinion.tips || []).map((t) => `<li>${esc(t)}</li>`).join('');
+
+    return `
+      <p class="verdict">${esc(opinion.headline)}</p>
+      <div class="mh">How it looks</div><p class="t">${esc(opinion.looks)}</p>
+      <div class="mh">How it suits you</div><p class="t">${esc(opinion.fit)}</p>
+      ${swatches ? `<div class="mh">Colours that work</div><div class="swatches">${swatches}</div>` : ''}
+      ${tips ? `<div class="mh">Try next</div><ul class="tips">${tips}</ul>` : ''}`;
+  }
+
+  function threadHtml() {
+    const bubbles = messages
+      .map((m) => `<div class="msg ${m.role === 'user' ? 'you' : 'stylist'}">${esc(m.content)}</div>`)
+      .join('');
+
+    return `
+      ${bubbles || busy ? `<div class="thread">${bubbles}${busy ? thinking('Thinking…') : ''}</div>` : ''}
+      ${
+        messages.length
+          ? ''
+          : `<div class="seeds">${SEEDS.map((s) => `<button class="seed" data-seed="${esc(s)}">${esc(s)}</button>`).join('')}</div>`
+      }
+      <form class="ask">
+        <input type="text" placeholder="Ask anything about this look…" maxlength="200" ${busy ? 'disabled' : ''}>
+        <button class="ghost" type="submit" aria-label="Ask the stylist" ${busy ? 'disabled' : ''}>${icon('send', 13)}</button>
+      </form>`;
+  }
+
+  function render() {
+    host.innerHTML = `
+      <div class="advice-top">
+        ${icon('sparkle', 13)}<b>Expert opinion</b>
+        <button class="advice-x" data-close="1" title="Close" aria-label="Close expert opinion">${icon('x', 13)}</button>
+      </div>
+      <div class="advice-body">
+        ${opinion ? opinionHtml() : busy ? thinking('Reading the fit…') : ''}
+        ${error ? `<p class="status err" style="text-align:left;margin:${opinion ? '11px 0 0' : '0'}">${esc(error)}</p>` : ''}
+        ${!opinion && !busy ? `<div class="row" style="margin-top:9px"><button class="ghost" data-retry="1">Try again</button></div>` : ''}
+        ${opinion ? threadHtml() : ''}
+      </div>`;
+
+    // Asking two things in a row shouldn't mean reaching for the field again.
+    if (wantFocus) {
+      host.querySelector('.ask input')?.focus();
+      wantFocus = false;
+    }
+  }
+
+  const call = (extra) => chrome.runtime.sendMessage({ type: 'ADVICE', ...subject, ...extra }).catch(() => null);
+
+  /** First read on a render. Re-opening the same one costs nothing. */
+  async function open(next) {
+    if (opinion && sameSubject(next)) {
+      host.hidden = false;
+      render();
+      return;
+    }
+
+    subject = next;
+    opinion = null;
+    messages = [];
+    error = '';
+    busy = true;
+    host.hidden = false;
+    render();
+
+    const res = await call({});
+    busy = false;
+    if (res?.ok && res.opinion) opinion = res.opinion;
+    else error = res?.error || 'The stylist didn’t answer. Try again in a moment.';
+    render();
+  }
+
+  async function ask(question) {
+    const text = String(question || '').trim().slice(0, 200);
+    if (!text || busy || !subject) return;
+
+    messages = [...messages, { role: 'user', content: text }];
+    error = '';
+    busy = true;
+    render();
+
+    // The opinion goes back with the question so the answer builds on what is
+    // already on screen instead of restating it.
+    const res = await call({ messages, opinion });
+    busy = false;
+    if (res?.ok && res.answer) messages = [...messages, { role: 'assistant', content: res.answer }];
+    else error = res?.error || 'The stylist didn’t answer. Try again in a moment.';
+    wantFocus = true;
+    render();
+  }
+
+  host.addEventListener('click', (e) => {
+    if (e.target.closest('[data-close]')) return void (host.hidden = true);
+    if (e.target.closest('[data-retry]')) {
+      const again = subject;
+      subject = null; // force a real re-ask rather than the "already answered" path
+      return void open(again);
+    }
+    const seed = e.target.closest('[data-seed]');
+    if (seed) ask(seed.dataset.seed);
+  });
+
+  host.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = host.querySelector('.ask input');
+    const text = input?.value || '';
+    if (input) input.value = '';
+    ask(text);
+  });
+
+  return {
+    open,
+    /** A different render is on screen — the old thread is about something else. */
+    reset() {
+      subject = null;
+      opinion = null;
+      messages = [];
+      error = '';
+      busy = false;
+      host.hidden = true;
+      host.innerHTML = '';
+    },
+  };
+}
+
+const fitStylist = createStylist($('fitAdvice'));
+
+/** What the stylist is being asked about, from whatever is in the fit result. */
+const fitSubject = () => ({
+  resultUrl: fitPayload.resultUrl,
+  context: {
+    title: fitPayload.title,
+    pieces: fitPayload.pieces || [],
+    category: fitPayload.category,
+    site: fitPayload.site,
+  },
+});
+
+$('askFit').addEventListener('click', () => {
+  if (fitPayload?.resultUrl) fitStylist.open(fitSubject());
+});
+
+/*
+ * Asked from a card in the grid. The render is already done there, but a card
+ * has no room for a conversation — so the service worker parks it here and
+ * opens the panel.
+ */
+function consumePendingAdvice(pending) {
+  if (!pending?.resultUrl) return;
+  chrome.storage.local.remove('pendingAdvice');
+
+  showTab('Try');
+  showFitResult({
+    resultUrl: pending.resultUrl,
+    applied: [{ title: pending.payload?.title, category: pending.payload?.category }],
+  });
+  fitPayload = { ...pending.payload, resultUrl: pending.resultUrl };
+  fitStylist.open(fitSubject());
+}
+
+chrome.storage.local.get('pendingAdvice').then(({ pendingAdvice }) => consumePendingAdvice(pendingAdvice));
+chrome.storage.onChanged.addListener((c, area) => {
+  if (area === 'local' && c.pendingAdvice?.newValue) consumePendingAdvice(c.pendingAdvice.newValue);
 });
 
 /* ---------------------------------------------------------------- library */
@@ -431,32 +654,114 @@ function renderLibrary() {
 
   $('looks').innerHTML = visible
     .map((l) => {
-      // Links back to the listings, so a look saved weeks ago is still shoppable.
-      const shop = (l.products || []).filter((p) => p.url);
-      const shopRow = shop.length
-        ? `<div class="shop">${shop
-            .map(
-              (p) => `<a class="shop-item" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.title)}">
-                ${p.thumb ? `<img src="${API}${esc(p.thumb)}" alt="" loading="lazy">` : `<span class="shop-ph">${icon('shirt', 12)}</span>`}
-                <span class="shop-go">${icon('external', 10)}</span>
-              </a>`
-            )
-            .join('')}</div>`
-        : '';
-
+      // The card is a doorway, not a spec sheet: picture, name, where it came
+      // from. The pieces it was built from — and their links — are one tap in.
+      const n = itemsOf(l).length;
       return `<div class="look" data-id="${esc(l.id)}">
-        <img src="${API}${esc(l.imageUrl)}" alt="${esc(l.title)}" loading="lazy">
+        <button class="open" data-open="${esc(l.id)}" aria-label="Open ${esc(l.title || 'this look')}">
+          <img src="${API}${esc(l.imageUrl)}" alt="${esc(l.title)}" loading="lazy">
+        </button>
         ${l.kind === 'outfit' ? '<span class="kind">Fit</span>' : ''}
         <button class="menu-btn" aria-haspopup="true" aria-expanded="false" title="Look options" aria-label="Options for ${esc(l.title || 'this look')}">${icon('menu', 13)}</button>
         <div class="cap">
           <b>${esc(l.title || 'Untitled look')}</b>
-          <span>${esc(l.site || '')}${l.site && l.category ? ' · ' : ''}${esc((l.category || '').replace('_', ' '))}</span>
-          ${shopRow}
+          <span>${esc(l.site || '')}${l.site && n ? ' · ' : ''}${n ? `${n} item${n === 1 ? '' : 's'}` : ''}</span>
         </div>
       </div>`;
     })
     .join('');
 }
+
+/*
+ * What the look was actually made of. `products` carries the listing links and
+ * thumbnails; older looks — and any piece whose product photo didn't download —
+ * still have their titles in `pieces`, so those are shown as plain rows rather
+ * than dropped.
+ */
+function itemsOf(look) {
+  const products = (look.products || []).map((p) => ({ ...p, category: p.category || slotFor(look, p.title) }));
+  const named = new Set(products.map((p) => p.title));
+  const extras = (look.pieces || [])
+    .filter((t) => t && !named.has(t))
+    .map((title) => ({ title, url: '', site: look.site, category: slotFor(look, title) }));
+  return [...products, ...extras];
+}
+
+/*
+ * Looks saved before the slot was kept per piece only have the outfit-level
+ * `category` — "upper_body+lower_body" — in the same order as `pieces`. That's
+ * enough to recover each piece's slot, so older looks list the same way as new
+ * ones instead of showing a row with no label.
+ */
+function slotFor(look, title) {
+  const cats = String(look.category || '').split('+').filter(Boolean);
+  const i = (look.pieces || []).indexOf(title);
+  if (i >= 0 && cats[i]) return cats[i];
+  return cats.length === 1 ? cats[0] : '';
+}
+
+/* ----------------------------------------------------------- look detail */
+
+/*
+ * A saved look is worth coming back to for the pieces, so opening one lists
+ * them with their listings attached — the render on its own can't be shopped.
+ */
+let sheetStylist = null;
+
+function openLook(id) {
+  const look = library.looks.find((l) => l.id === id);
+  if (!look) return;
+  closeMenu();
+
+  const items = itemsOf(look);
+  const rows = items.length
+    ? items
+        .map((p) => {
+          const slot = SLOTS[p.category] || (p.category || '').replace('_', ' ') || 'Piece';
+          const meta = `<span class="item-slot">${esc(slot)}</span>
+            <b>${esc(p.title || 'Untitled piece')}</b>
+            ${p.site ? `<span class="item-site">${esc(p.site)}</span>` : ''}`;
+          // No link means the listing wasn't captured — say so instead of
+          // offering a row that looks clickable and does nothing.
+          return p.url
+            ? `<a class="item" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">
+                <span class="item-meta">${meta}</span>
+                <span class="item-go" aria-label="Open listing">${icon('arrow-out', 13)}</span>
+              </a>`
+            : `<div class="item nolink">
+                <span class="item-meta">${meta}<em>No listing saved</em></span>
+              </div>`;
+        })
+        .join('')
+    : '<p class="sheet-empty">No pieces were recorded for this look.</p>';
+
+  $('sheetBody').innerHTML = `
+    <img class="sheet-img" src="${API}${esc(look.imageUrl)}" alt="${esc(look.title)}">
+    <h3>${esc(look.title || 'Untitled look')}</h3>
+    ${look.site ? `<p class="sheet-sub">${esc(look.site)}</p>` : ''}
+    <button class="ghost" id="askLook" style="width:100%;justify-content:center;margin-top:12px">
+      ${icon('sparkle', 13)}Expert opinion
+    </button>
+    <div id="lookAdvice"></div>
+    <div class="mh">${items.length ? `Items in this ${look.kind === 'outfit' ? 'fit' : 'look'}` : 'Items'}</div>
+    <div class="items">${rows}</div>`;
+
+  // The sheet's body is rebuilt on every open, so the stylist is too — a thread
+  // about last week's jacket has no business appearing under this look.
+  sheetStylist = createStylist($('lookAdvice'));
+  $('askLook').addEventListener('click', () => sheetStylist.open({ lookId: look.id }));
+
+  $('lookSheet').hidden = false;
+  $('sheetClose').focus();
+}
+
+function closeSheet() {
+  $('lookSheet').hidden = true;
+  $('sheetBody').innerHTML = '';
+  sheetStylist = null;
+}
+
+$('sheetClose').addEventListener('click', closeSheet);
 
 $('chips').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-collection]');
@@ -577,6 +882,12 @@ function openMenu(btn, look) {
 }
 
 $('looks').addEventListener('click', (e) => {
+  const open = e.target.closest('[data-open]');
+  if (open) {
+    openLook(open.dataset.open);
+    return;
+  }
+
   const btn = e.target.closest('.menu-btn');
   if (!btn) return;
   const id = btn.closest('.look').dataset.id;
@@ -647,7 +958,10 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeMenu();
+  if (e.key !== 'Escape') return;
+  // The sheet sits above the menu, so it's what Escape dismisses first.
+  if (!$('lookSheet').hidden) closeSheet();
+  else closeMenu();
 });
 
 // Fixed positioning doesn't follow the list, so the menu is dismissed instead of

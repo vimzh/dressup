@@ -101,7 +101,54 @@ async function classify({ garmentImageUrl, productTitle }) {
   }
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+/**
+ * The stylist. One endpoint does both halves: with no `messages` it returns the
+ * opening opinion, with them it answers the follow-up.
+ */
+async function advice({ lookId, resultUrl, context, messages, opinion }) {
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/advice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lookId, resultUrl, context, messages, opinion }),
+    });
+  } catch {
+    return { ok: false, error: 'Can’t reach the Zdress server. Is it running on port 3000?' };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: data.error || `The stylist didn’t answer (HTTP ${res.status}).` };
+  return { ok: true, ...data };
+}
+
+/**
+ * A render swapped into the grid has no room for a conversation, so asking from
+ * a card hands the look to the side panel and opens it.
+ *
+ * `sidePanel.open` needs a user gesture; forwarding the card's click through
+ * here keeps one, but a stale message channel or an unusual window can still
+ * refuse — hence the plain fallback rather than a silent no-op.
+ */
+async function openStylist({ payload, resultUrl }, sender) {
+  await chrome.storage.local.set({ pendingAdvice: { resultUrl, payload, at: Date.now() } });
+  try {
+    await chrome.sidePanel.open({ windowId: sender?.tab?.windowId });
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Open Zdress from your toolbar — the stylist is waiting on the Try on tab.' };
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === 'ADVICE') {
+    advice(msg).then(sendResponse);
+    return true;
+  }
+  if (msg?.type === 'ASK_STYLIST') {
+    openStylist(msg, sender).then(sendResponse);
+    return true;
+  }
   if (msg?.type === 'CLASSIFY') {
     classify(msg).then(sendResponse);
     return true;
