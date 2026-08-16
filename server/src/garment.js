@@ -35,11 +35,16 @@ function getClient() {
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['is_apparel', 'category', 'confidence', 'reason', 'description', 'source_type', 'covers'],
+  required: ['is_apparel', 'category', 'confidence', 'reason', 'description', 'source_type', 'covers', 'separate_items'],
   properties: {
     is_apparel: {
       type: 'boolean',
       description: 'True only if a wearable garment is the clear subject and a virtual try-on would be meaningful.',
+    },
+    separate_items: {
+      type: 'boolean',
+      description:
+        'True when the image lays out two or more distinct garments side by side as an outfit board, rather than showing one product.',
     },
     category: {
       type: ['string', 'null'],
@@ -88,6 +93,17 @@ Decide two things.
                   pyjama sets). If the listing sells both a top and a bottom as one
                   product, it is full_body.
    - shoes      — any footwear
+
+A SET IS NOT A BOARD. A co-ord set or tracksuit is ONE product: matching fabric, matching
+colour, photographed as a unit. An outfit board is several unrelated garments — a shirt, some
+jeans, a pair of trainers — laid out with space between them, usually on a plain backdrop, in
+different colours and fabrics. Boards are extremely common and must NOT be read as full_body
+sets: set separate_items=true and is_apparel=false, and say in "reason" that it shows several
+separate pieces. Footwear laid out beside clothing settles it — no single product is both a
+shirt and a pair of trainers.
+
+Set separate_items=false for anything worn by a person, and for any single product, however
+many photos of it are stitched together.
 
 THE PRODUCT TITLE IS AUTHORITATIVE. When the title names the garment type, follow it
 even if the photo is ambiguous or shows other clothing. A model wearing a t-shirt and
@@ -165,6 +181,7 @@ export async function inspectGarment(imageDataUrl, productTitle = '') {
     description: parsed.description,
     sourceType: parsed.source_type,
     covers: parsed.covers || [],
+    separateItems: Boolean(parsed.separate_items),
   };
 }
 

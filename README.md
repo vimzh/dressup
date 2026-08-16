@@ -90,6 +90,53 @@ cut out, and run through the same chain that composes a tick-built fit. On the p
 this, that found three pieces — tee, denim shorts, trainers — and correctly skipped the cap and
 the tote, neither of which YouCam can render.
 
+### A board is not a co-ord set
+
+Screening alone was not a reliable gate for this. Measured across four baggy-denim boards, one
+came back `is_apparel: true`, `full_body`, confidence 0.58 — read as a *coordinated set*, which
+is a fair description of "a shirt and trousers sold together" and a terrible one for a shirt,
+some jeans and a pair of trainers laid out with gaps between them. When that happens the split
+never runs and the **entire board** goes to YouCam as one garment. It has nothing to say how
+long the legs are, so it guesses, and short ones are a perfectly plausible guess — which is
+exactly how full-length jeans come back as shorts.
+
+So screening now reports `separate_items` as its own signal, and a pin that is board-shaped is
+split whatever category it was given. All four boards now screen as boards at 0.98–0.99, while
+a real tracksuit listing still classifies `full_body` at 0.99 with and without its title, and
+worn-look pins are untouched.
+
+### Cutting a piece out without cutting it short
+
+Three things were wrong with the crops themselves, all of which put the wrong garment in front
+of YouCam:
+
+- **The box that stops at the knee.** The crop *is* the garment as far as the render is
+  concerned, so jeans clipped mid-leg are worn as shorts — faithfully. Each cut-out is now
+  screened for whether the garment runs off its own edge, and a piece reported cut off gets one
+  retry with those edges opened up. Lower-body boxes also get roughly double padding at the
+  bottom, the edge the model most often draws short.
+- **A pair of shoes counted as two shoes.** Boxed separately about half the time, which cost an
+  extra render pass and sent half a pair in as the reference for a pair. Same-category boxes
+  that touch are now unioned, and only the largest per slot survives — the rule `/api/outfit`
+  already applies to ticked items.
+- **Squaring a 1:3 garment.** Crops were padded onto a 1024×1024 canvas, so wide-leg jeans
+  occupied a third of the frame with white either side. The canvas now opens only as far as
+  3:4, and the garment stays large.
+
+The per-piece check is also its own prompt rather than a second call to product screening.
+Product screening exists to decide whether an image is one sellable garment — and now correctly
+refuses anything board-shaped, which a crop off a board often looks like, since boards overlap
+and a rectangle around the shirt catches the top of the jeans. Pointed at the crops, it threw
+away two of three real pieces. The crop is asked a question that fits what it is: of what is
+visible here, which garment is the main one, and is all of it in frame?
+
+The locator's own label is deliberately not passed into that check. Screening treats a title as
+authoritative, so feeding it a guessed "denim shorts" launders the guess into a fact — it comes
+back confirmed as shorts even when the crop plainly holds full-length jeans. A check is only
+worth having if it can disagree, so it gets the pixels and nothing else.
+
+Measured on the same four boards: three pieces each, one per slot, hems intact.
+
 **Nothing is generated.** A vision model is asked only for the *location* of each garment; the
 cutting is done by sharp, so every output pixel came from the pin. That is deliberate: rebuilding
 garments with an image model was measured to lose logos and drop whole pieces (see below). Each

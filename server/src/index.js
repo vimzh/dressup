@@ -103,15 +103,26 @@ app.post('/api/tryon', async (req, res) => {
     // 2. Screen before spending a YouCam unit. The listing title resolves cases
     //    the photo alone can't — a tracksuit set reads as just a jacket otherwise.
     const garment = await inspectGarment(toDataUrl(buffer, contentType), productTitle);
-    log(`  screening: apparel=${garment.isApparel} category=${garment.category} (${garment.description})`);
+    log(
+      `  screening: apparel=${garment.isApparel} category=${garment.category}` +
+        `${garment.separateItems ? ' board' : ''} (${garment.description})`
+    );
 
     /*
      * A Pinterest pin is often a moodboard rather than a worn look: a cap, a tee,
-     * a tote, shorts and trainers laid out separately. Screening correctly calls
+     * a tote, shorts and trainers laid out separately. Screening usually calls
      * that a collage and refuses it — but it is still an outfit, just
      * pre-separated. Cut out the wearable pieces and chain them.
+     *
+     * `separateItems` is what makes this reliable. Screening used to be the only
+     * gate, and it reads a board of a shirt, jeans and trainers as a "co-ord set"
+     * often enough to matter — full_body at 0.58 confidence on a tested pin. That
+     * sent the entire board to YouCam as one garment, which is where invented
+     * clothing comes from: handed a flat-lay with the jeans in the middle third,
+     * it has nothing to say how long the legs are, and short ones are a perfectly
+     * plausible guess. Board-shaped means split, whatever the category says.
      */
-    if (!garment.isApparel && mode === 'whole_look') {
+    if (mode === 'whole_look' && (!garment.isApparel || garment.separateItems)) {
       const pieces = await splitCollage(buffer);
       if (pieces.length) {
         pieces.sort((a, b) => inLayerOrder(a.category, b.category));
