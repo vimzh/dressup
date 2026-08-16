@@ -217,6 +217,64 @@ const SITES = [
   },
 
   {
+    id: 'pinterest',
+    label: 'Pinterest',
+    // Pinterest runs per-country hosts: pinterest.com, in.pinterest.com, .co.uk …
+    match: (h) => /(^|\.)pinterest\.[a-z.]+$/.test(h),
+
+    /*
+     * A pin is a whole outfit on a person, not a product with a slot — so a click
+     * applies everything YouCam can swap rather than one garment. Screening still
+     * runs and still rejects non-apparel, which matters more here than on a shop
+     * grid: feeds are full of interiors, food and memes.
+     */
+    mode: 'whole_look',
+
+    /*
+     * Two page types behind one adapter.
+     *
+     * On a pin page there is no grid, only the closeup — the same fall-back shape
+     * Myntra uses for its product pages. On a feed or board there is a grid, but
+     * its structure depends on being signed in: signed in, pins are anchors to
+     * /pin/<id>; signed out, they are `gated-pin-image` containers with no link
+     * at all. Both are handled, since the extension can't know which it will meet.
+     *
+     * Everything keys off `data-test-id` or the pin URL. Pinterest's class names
+     * are build-generated hashes (`iFOUS5`, `ADXRXN`) and would break on deploy —
+     * the same trap already avoided on Nykaa Fashion and Flipkart.
+     */
+    cards: () => {
+      const closeup = document.querySelector('[data-test-id="pin-closeup-image"]');
+      if (closeup) return [closeup];
+
+      const linked = uniq(
+        [...document.querySelectorAll('a[href*="/pin/"]')].filter((a) => a.querySelector('img'))
+      );
+      if (linked.length) return linked;
+
+      return [...document.querySelectorAll('[data-test-id="gated-pin-image"]')];
+    },
+
+    imageBox: (card) => card.querySelector('div') || card,
+    image: (card) => card.querySelector('img[src*="pinimg.com"]'),
+
+    /*
+     * Deliberately empty. The screening prompt treats a product title as
+     * authoritative, and a pin has nothing that qualifies — this pin's heading is
+     * "Männer Outfit", its og:title is "90年代 ファッション メンズ", and its alt text
+     * is a comma-run of SEO tags. Feeding any of those in would mislead the
+     * classifier; the image alone is the better signal.
+     */
+    title: () => '',
+
+    // Nothing to buy, so the pin itself is the link worth keeping on a saved look.
+    link: (card) => card.closest?.('a[href*="/pin/"]')?.getAttribute('href') || location.pathname,
+
+    // Size is a path token: /736x/ (or /236x/, /564x/) -> /originals/, 1080x1920.
+    highRes: (url) => url.replace(/\/(\d+x\d*|originals)\//, '/originals/'),
+  },
+
+  {
     id: 'amazon',
     label: 'Amazon',
     match: (h) => /(^|\.)amazon\.(in|com)$/.test(h),

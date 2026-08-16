@@ -6,7 +6,7 @@
 
 const API_BASE = 'http://localhost:3000';
 
-async function tryOn({ garmentImageUrl, productTitle }) {
+async function tryOn({ garmentImageUrl, productTitle, mode }) {
   const { personFileId } = await chrome.storage.local.get('personFileId');
   if (!personFileId) {
     return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the Zdress icon in your toolbar.' };
@@ -17,7 +17,7 @@ async function tryOn({ garmentImageUrl, productTitle }) {
     res = await fetch(`${API_BASE}/api/tryon`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ personFileId, garmentImageUrl, productTitle }),
+      body: JSON.stringify({ personFileId, garmentImageUrl, productTitle, mode }),
     });
   } catch {
     return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the Zdress server. Is it running on port 3000?' };

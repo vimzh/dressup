@@ -62,6 +62,32 @@ by accident and the outfit still renders, with a note explaining the watch was l
 
 The cost is time — each piece is its own render, so a three-piece fit takes roughly a minute.
 
+## Pinterest
+
+Pinterest is the opposite shape to a shop: a pin is a look, not a product with a slot, and
+there is nothing to buy. So a click there applies **everything YouCam supports** rather than one
+garment — and pins come in two forms, both handled:
+
+- **Someone wearing a look** → sent straight through as `full_body` with `change_shoes` on.
+- **A moodboard** — a cap, a tee, a tote, shorts and trainers laid out separately — which is by
+  far the more common fashion pin. YouCam cannot take that as one garment, and screening rightly
+  calls it a collage.
+
+A moodboard is still an outfit; it is just pre-separated. So the wearable pieces are located,
+cut out, and run through the same chain that composes a tick-built fit. On the pin used to build
+this, that found three pieces — tee, denim shorts, trainers — and correctly skipped the cap and
+the tote, neither of which YouCam can render.
+
+**Nothing is generated.** A vision model is asked only for the *location* of each garment; the
+cutting is done by sharp, so every output pixel came from the pin. That is deliberate: rebuilding
+garments with an image model was measured to lose logos and drop whole pieces (see below). Each
+crop is then re-screened, so a box that turns out to hold a tote bag is discarded rather than
+rendered.
+
+Pin titles are deliberately ignored. The screening prompt treats a product title as
+authoritative, and a pin has nothing that qualifies — the test pin's heading is "Männer Outfit"
+and its `og:title` is "90年代 ファッション メンズ". The image alone is the better signal.
+
 ## Saving looks
 
 Renders carry a **save** button — on the swapped card for a single piece, under the result for
@@ -278,6 +304,7 @@ adding one entry: how to find cards, where the image is, and how to upgrade the 
 | Max Fashion | `.product` | Cloudflare `/cdn-cgi/image/w=1080` | ◐ adapter only |
 | Libas | `.grid-product__content` | Shopify `width=1200` | ◐ adapter only |
 | Tata CLiQ | `a.ProductModule__base` | single asset | ⚠️ grid only |
+| Pinterest | `pin-closeup-image`, pin anchors | `/736x/` → `/originals/` | ✅ pin page + render |
 
 ✅ = a real garment rendered through the whole pipeline. ◐ = selectors, titles and image
 URLs confirmed against the live site, but no try-on render was run.

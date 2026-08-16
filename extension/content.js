@@ -249,6 +249,9 @@
           type: 'TRY_ON',
           garmentImageUrl: imageUrl,
           productTitle: info.title,
+          // Whole-look sites (Pinterest) apply everything YouCam can swap rather
+          // than the single slot a shop listing implies.
+          mode: site.mode || 'single',
         });
       } catch {
         // Reloading the extension invalidates this context mid-request.

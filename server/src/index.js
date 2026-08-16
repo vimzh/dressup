@@ -17,6 +17,7 @@ import { inspectGarment, inspectPerson } from './garment.js';
 import { normalizeImage, toDataUrl } from './image.js';
 import * as library from './library.js';
 import { prepareGarment } from './prep.js';
+import { splitCollage } from './collage.js';
 
 const app = express();
 const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -82,7 +83,7 @@ app.post('/api/person', upload.single('photo'), async (req, res) => {
 
 /** Runs a single try-on: screen the garment, upload it, start the task, poll. */
 app.post('/api/tryon', async (req, res) => {
-  const { personFileId, garmentImageUrl, productTitle = '' } = req.body || {};
+  const { personFileId, garmentImageUrl, productTitle = '', mode = 'single' } = req.body || {};
   if (!personFileId) return res.status(400).json({ error: 'Upload your photo first.', code: 'NO_PERSON' });
   if (!garmentImageUrl) return res.status(400).json({ error: 'No garment image supplied.', code: 'NO_GARMENT' });
 
@@ -104,6 +105,32 @@ app.post('/api/tryon', async (req, res) => {
     const garment = await inspectGarment(toDataUrl(buffer, contentType), productTitle);
     log(`  screening: apparel=${garment.isApparel} category=${garment.category} (${garment.description})`);
 
+    /*
+     * A Pinterest pin is often a moodboard rather than a worn look: a cap, a tee,
+     * a tote, shorts and trainers laid out separately. Screening correctly calls
+     * that a collage and refuses it — but it is still an outfit, just
+     * pre-separated. Cut out the wearable pieces and chain them.
+     */
+    if (!garment.isApparel && mode === 'whole_look') {
+      const pieces = await splitCollage(buffer);
+      if (pieces.length) {
+        pieces.sort((a, b) => inLayerOrder(a.category, b.category));
+        log(`  moodboard: ${pieces.map((p) => p.category).join(' -> ')}`);
+
+        const resultUrl = await renderChain(personFileId, pieces);
+        return res.json({
+          resultUrl,
+          garment: {
+            ...garment,
+            isApparel: true,
+            category: pieces.map((p) => p.category).join('+'),
+            description: pieces.map((p) => p.title).join(', '),
+          },
+          pieces: pieces.map((p) => ({ title: p.title, category: p.category })),
+        });
+      }
+    }
+
     if (!garment.isApparel) {
       return res.status(422).json({ error: garment.reason, code: 'NOT_APPAREL', garment });
     }
@@ -122,7 +149,18 @@ app.post('/api/tryon', async (req, res) => {
       garmentBuffer = prep.buffer;
     }
 
-    // 4. Hand the bytes to YouCam.
+    /*
+     * 4. Whole-look sources (a Pinterest pin) are an outfit on a person, not a
+     *    product with one slot. Applying everything YouCam supports is the point
+     *    of the click there, so the classifier's slot is overridden — but only
+     *    after screening has confirmed it is apparel at all.
+     */
+    const wholeLook = mode === 'whole_look';
+    const category = wholeLook ? 'full_body' : garment.category || 'auto';
+    const changeShoes = wholeLook || garment.category === 'shoes';
+    if (wholeLook) log(`  whole-look: category ${garment.category} -> full_body, change_shoes on`);
+
+    // 5. Hand the bytes to YouCam.
     const garmentFileId = await uploadImage(garmentBuffer, {
       fileName: contentType === 'image/png' ? 'garment.png' : 'garment.jpg',
       contentType,
@@ -130,12 +168,12 @@ app.post('/api/tryon', async (req, res) => {
     });
     log(`  garment file_id: ${garmentFileId}`);
 
-    // 5. Start the task and wait it out.
+    // 6. Start the task and wait it out.
     const taskId = await createClothTask({
       personFileId,
       garmentFileId,
-      garmentCategory: garment.category || 'auto',
-      changeShoes: garment.category === 'shoes',
+      garmentCategory: category,
+      changeShoes,
     });
     log(`  task_id: ${taskId}`);
 
@@ -205,6 +243,47 @@ app.post('/api/classify', async (req, res) => {
  */
 const LAYER_ORDER = { full_body: 0, lower_body: 1, upper_body: 2, shoes: 3 };
 
+/**
+ * Applies garments one after another, each render becoming the person image for
+ * the next. Shared by the tick-built outfit and by a moodboard pin split into
+ * its pieces — both are "several garments, one body".
+ *
+ * @param {string} personFileId
+ * @param {Array<{buffer: Buffer, contentType: string, category: string, title?: string}>} pieces
+ *   already in the order they should be applied
+ */
+async function renderChain(personFileId, pieces) {
+  let srcFileId = personFileId;
+  let resultUrl = null;
+
+  for (const [i, piece] of pieces.entries()) {
+    const garmentFileId = await uploadImage(piece.buffer, {
+      fileName: piece.contentType === 'image/png' ? 'garment.png' : 'garment.jpg',
+      contentType: piece.contentType,
+      kind: 'cloth',
+    });
+
+    const taskId = await createClothTask({
+      personFileId: srcFileId,
+      garmentFileId,
+      garmentCategory: piece.category,
+      changeShoes: piece.category === 'shoes',
+    });
+    resultUrl = await pollClothTask(taskId);
+    log(`  step ${i + 1}/${pieces.length} (${piece.category}) done`);
+
+    // Re-upload the render as the person image for the following layer.
+    if (i < pieces.length - 1) {
+      const stepRes = await fetch(resultUrl);
+      const { buffer, contentType } = await normalizeImage(Buffer.from(await stepRes.arrayBuffer()));
+      srcFileId = await uploadImage(buffer, { fileName: 'step.jpg', contentType, kind: 'cloth' });
+    }
+  }
+  return resultUrl;
+}
+
+const inLayerOrder = (a, b) => (LAYER_ORDER[a] ?? 9) - (LAYER_ORDER[b] ?? 9);
+
 app.post('/api/outfit', async (req, res) => {
   const { personFileId, items } = req.body || {};
   if (!personFileId) return res.status(400).json({ error: 'Upload your photo first.', code: 'NO_PERSON' });
@@ -267,32 +346,10 @@ app.post('/api/outfit', async (req, res) => {
     log(`  plan: ${plan.map((p) => p.garment.category).join(' -> ')}${skipped.length ? ` (skipped ${skipped.length})` : ''}`);
 
     // 3. Apply each piece in turn, feeding each render into the next step.
-    let srcFileId = personFileId;
-    let resultUrl = null;
-
-    for (const [i, piece] of plan.entries()) {
-      const garmentFileId = await uploadImage(piece.buffer, {
-        fileName: piece.contentType === 'image/png' ? 'garment.png' : 'garment.jpg',
-        contentType: piece.contentType,
-        kind: 'cloth',
-      });
-
-      const taskId = await createClothTask({
-        personFileId: srcFileId,
-        garmentFileId,
-        garmentCategory: piece.garment.category,
-        changeShoes: piece.garment.category === 'shoes',
-      });
-      resultUrl = await pollClothTask(taskId);
-      log(`  step ${i + 1}/${plan.length} (${piece.garment.category}) done`);
-
-      // Re-upload the render as the person image for the following layer.
-      if (i < plan.length - 1) {
-        const stepRes = await fetch(resultUrl);
-        const { buffer, contentType } = await normalizeImage(Buffer.from(await stepRes.arrayBuffer()));
-        srcFileId = await uploadImage(buffer, { fileName: 'step.jpg', contentType, kind: 'cloth' });
-      }
-    }
+    const resultUrl = await renderChain(
+      personFileId,
+      plan.map((p) => ({ buffer: p.buffer, contentType: p.contentType, category: p.garment.category }))
+    );
 
     res.json({
       resultUrl,

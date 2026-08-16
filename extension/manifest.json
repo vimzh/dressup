@@ -38,7 +38,9 @@
         "*://www.snitch.com/*",
         "*://www.bewakoof.com/*",
         "*://www.maxfashion.in/*",
-        "*://www.libas.in/*"
+        "*://www.libas.in/*",
+        "*://*.pinterest.com/*",
+        "*://*.pinterest.co.uk/*"
       ],
       "js": ["sites.js", "content.js"],
       "css": ["content.css"],
