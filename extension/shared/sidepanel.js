@@ -9,6 +9,9 @@
  * rather than left to render as broken thumbnails.
  */
 
+// Chrome puts the promise-based extension APIs on `chrome`, Firefox on `browser`.
+globalThis.browser ??= globalThis.chrome;
+
 const API = 'http://localhost:3000';
 
 const $ = (id) => document.getElementById(id);
@@ -116,7 +119,7 @@ function reflectPhotoState(hasPhoto) {
   if (!hasPhoto) $('removeConfirm').hidden = true;
 }
 
-chrome.storage.local.get(['personFileId', 'personPreview']).then(({ personFileId, personPreview }) => {
+browser.storage.local.get(['personFileId', 'personPreview']).then(({ personFileId, personPreview }) => {
   if (personPreview) showPhoto(personPreview);
   if (personFileId) setStatus($('photoStatus'), 'Photo ready.', 'ok');
   reflectPhotoState(Boolean(personFileId));
@@ -142,7 +145,7 @@ $('removeNo').addEventListener('click', () => {
 });
 
 $('removeYes').addEventListener('click', async () => {
-  await chrome.storage.local.remove(['personFileId', 'personPreview']);
+  await browser.storage.local.remove(['personFileId', 'personPreview']);
   clearPhoto();
   reflectPhotoState(false);
   // The old render is of a person whose photo is gone; don't leave it sitting there.
@@ -172,7 +175,7 @@ $('file').addEventListener('change', async () => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Upload failed (HTTP ${res.status}).`);
 
-    await chrome.storage.local.set({ personFileId: data.personFileId, personPreview: dataUrl });
+    await browser.storage.local.set({ personFileId: data.personFileId, personPreview: dataUrl });
     reflectPhotoState(true);
 
     // Accepted, but a half-body crop renders fine for tops and badly for trousers.
@@ -233,19 +236,19 @@ function renderFit(selection = []) {
   $('tryfitLabel').textContent = `Try this fit (${selection.length})`;
 }
 
-chrome.storage.local.get('selection').then(({ selection = [] }) => renderFit(selection));
-chrome.storage.onChanged.addListener((c, area) => {
+browser.storage.local.get('selection').then(({ selection = [] }) => renderFit(selection));
+browser.storage.onChanged.addListener((c, area) => {
   if (area === 'local' && c.selection) renderFit(c.selection.newValue || []);
 });
 
-$('clearFit').addEventListener('click', () => chrome.storage.local.set({ selection: [] }));
+$('clearFit').addEventListener('click', () => browser.storage.local.set({ selection: [] }));
 
 $('strip').addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-remove]');
   if (!btn) return;
   const i = Number(btn.dataset.remove);
-  const { selection = [] } = await chrome.storage.local.get('selection');
-  await chrome.storage.local.set({ selection: selection.filter((_, n) => n !== i) });
+  const { selection = [] } = await browser.storage.local.get('selection');
+  await browser.storage.local.set({ selection: selection.filter((_, n) => n !== i) });
 });
 
 /*
@@ -261,7 +264,7 @@ function setFitBusy(busy, label = '') {
 }
 
 $('tryfit').addEventListener('click', async () => {
-  const { personFileId, selection: items = [] } = await chrome.storage.local.get(['personFileId', 'selection']);
+  const { personFileId, selection: items = [] } = await browser.storage.local.get(['personFileId', 'selection']);
   if (!personFileId) return setStatus($('fitStatus'), 'Add your photo first — open settings above.', 'err');
   if (!items.length) return setStatus($('fitStatus'), 'Tick a few items first.', 'err');
 
@@ -277,7 +280,7 @@ $('tryfit').addEventListener('click', async () => {
   }, 500);
 
   try {
-    const res = await chrome.runtime.sendMessage({ type: 'TRY_OUTFIT', items });
+    const res = await browser.runtime.sendMessage({ type: 'TRY_OUTFIT', items });
     if (!res?.ok) {
       setStatus($('fitStatus'), res?.error || 'Fit render failed.', 'err');
       return;
@@ -289,22 +292,41 @@ $('tryfit').addEventListener('click', async () => {
   }
 });
 
-/* Picked up when a retailer's CSP blocked the render from showing on the page. */
-chrome.storage.local.get('lastRender').then(({ lastRender }) => {
-  if (!lastRender) return;
+/*
+ * Picked up when a retailer's CSP blocked the render from showing on the page.
+ *
+ * Watched as well as read once. Reading at load only catches the case where the
+ * panel was shut — but the panel is just as often already open, and then the
+ * render sat in storage unseen while the page's toast said it was waiting here.
+ * Same pairing as `pendingAdvice` below.
+ */
+function consumeLastRender(lastRender) {
+  if (!lastRender?.resultUrl) return;
+  browser.storage.local.remove('lastRender');
+
+  const payload = lastRender.payload || {};
+  showTab('Try');
   showFitResult({
     resultUrl: lastRender.resultUrl,
-    applied: [{ title: lastRender.payload.title, description: lastRender.payload.title, category: lastRender.payload.category }],
+    applied: [{ title: payload.title, description: payload.title, category: payload.category }],
   });
-  fitPayload = { ...lastRender.payload, resultUrl: lastRender.resultUrl };
+  fitPayload = { ...payload, resultUrl: lastRender.resultUrl };
   setStatus($('fitStatus'), 'Rendered — that site blocked it from showing in the grid.', '');
-  chrome.storage.local.remove('lastRender');
+}
+
+browser.storage.local.get('lastRender').then(({ lastRender }) => consumeLastRender(lastRender));
+browser.storage.onChanged.addListener((c, area) => {
+  if (area === 'local' && c.lastRender?.newValue) consumeLastRender(c.lastRender.newValue);
 });
 
 function showFitResult(res) {
   $('fitImage').src = res.resultUrl;
+  // A piece with neither a description nor a title would paint an empty pill —
+  // a stray 12px capsule with nothing in it, which reads as a rendering fault.
   $('fitPills').innerHTML = (res.applied || [])
-    .map((a) => `<span class="pill">${esc(a.description || a.title)}</span>`)
+    .map((a) => a.description || a.title)
+    .filter(Boolean)
+    .map((label) => `<span class="pill">${esc(label)}</span>`)
     .join('');
 
   const notes = [
@@ -354,7 +376,7 @@ $('dismissFit').addEventListener('click', () => {
 $('saveFit').addEventListener('click', async () => {
   if (!fitPayload) return;
   $('saveFit').disabled = true;
-  const res = await chrome.runtime.sendMessage({ type: 'SAVE_LOOK', payload: fitPayload });
+  const res = await browser.runtime.sendMessage({ type: 'SAVE_LOOK', payload: fitPayload });
   if (res?.ok) {
     $('saveFitLabel').textContent = 'Saved';
   } else {
@@ -454,7 +476,7 @@ function createStylist(host) {
     }
   }
 
-  const call = (extra) => chrome.runtime.sendMessage({ type: 'ADVICE', ...subject, ...extra }).catch(() => null);
+  const call = (extra) => browser.runtime.sendMessage({ type: 'ADVICE', ...subject, ...extra }).catch(() => null);
 
   /** First read on a render. Re-opening the same one costs nothing. */
   async function open(next) {
@@ -556,7 +578,7 @@ $('askFit').addEventListener('click', () => {
  */
 function consumePendingAdvice(pending) {
   if (!pending?.resultUrl) return;
-  chrome.storage.local.remove('pendingAdvice');
+  browser.storage.local.remove('pendingAdvice');
 
   showTab('Try');
   showFitResult({
@@ -567,8 +589,8 @@ function consumePendingAdvice(pending) {
   fitStylist.open(fitSubject());
 }
 
-chrome.storage.local.get('pendingAdvice').then(({ pendingAdvice }) => consumePendingAdvice(pendingAdvice));
-chrome.storage.onChanged.addListener((c, area) => {
+browser.storage.local.get('pendingAdvice').then(({ pendingAdvice }) => consumePendingAdvice(pendingAdvice));
+browser.storage.onChanged.addListener((c, area) => {
   if (area === 'local' && c.pendingAdvice?.newValue) consumePendingAdvice(c.pendingAdvice.newValue);
 });
 
@@ -599,15 +621,27 @@ async function api(path, options, failureMessage) {
 let library = { collections: [], looks: [] };
 let activeCollection = 'all';
 
+const NOTHING_SAVED = `${icon('bookmark', 20)}<p>Nothing saved yet. Try something on, then hit <strong>Save look</strong> on the result.</p>`;
+
 async function loadLibrary() {
   closeMenu();
   $('collConfirm').hidden = true;
   try {
     const res = await fetch(`${API}/api/library`);
-    library = await res.json();
+    // Without this an error body parses perfectly well and becomes `library`,
+    // renderLibrary then throws on the arrays it doesn't have, and the catch
+    // below blames a server that in fact answered.
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    library = { collections: data.collections || [], looks: data.looks || [] };
     renderLibrary();
   } catch {
+    // Cleared rather than left showing the last good render underneath a
+    // message saying the library is unavailable.
+    library = { collections: [], looks: [] };
+    $('chips').innerHTML = '';
     $('looks').innerHTML = '';
+    $('lookCount').hidden = true;
     $('looksEmpty').hidden = false;
     $('looksEmpty').innerHTML =
       `${icon('plug', 20)}<p>Can’t reach the Zdress server, so saved looks aren’t available. Start it with <strong>npm start</strong> in <strong>server/</strong>.</p>`;
@@ -647,9 +681,14 @@ function renderLibrary() {
   $('lookCount').hidden = library.looks.length === 0;
   $('lookCount').textContent = library.looks.length;
 
+  // Always rewritten, never left as it was: an earlier "can't reach the server"
+  // or "nothing in this collection" otherwise survives into a state where it is
+  // simply untrue — the server comes back up, or the filter moves back to All.
   $('looksEmpty').hidden = visible.length > 0;
-  if (!visible.length && library.looks.length) {
-    $('looksEmpty').innerHTML = `${icon('bookmark', 20)}<p>Nothing in this collection yet.</p>`;
+  if (!visible.length) {
+    $('looksEmpty').innerHTML = library.looks.length
+      ? `${icon('bookmark', 20)}<p>Nothing in this collection yet.</p>`
+      : NOTHING_SAVED;
   }
 
   $('looks').innerHTML = visible
@@ -970,6 +1009,6 @@ document.querySelector('main').addEventListener('scroll', closeMenu);
 window.addEventListener('resize', closeMenu);
 
 // A save can happen while the panel is open on the other tab.
-chrome.runtime.onMessage.addListener((msg) => {
+browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === 'LOOK_SAVED' && !$('paneSaved').hidden) loadLibrary();
 });

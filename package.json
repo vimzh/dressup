@@ -1,0 +1,14 @@
+{
+  "name": "zdress",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Virtual try-on where you actually shop — Chrome and Firefox extension plus its local backend.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:chrome": "node scripts/build.mjs chrome",
+    "build:firefox": "node scripts/build.mjs firefox",
+    "package": "node scripts/build.mjs --zip",
+    "lint:firefox": "npm run build:firefox && npx --yes web-ext@8 lint --source-dir=dist/firefox --self-hosted",
+    "start": "npm start --prefix server"
+  }
+}

@@ -1,13 +1,20 @@
 /**
- * Service worker. All network calls to the backend happen here rather than in
- * the content script: the worker has host_permissions for localhost and isn't
- * subject to Myntra's page CSP.
+ * The background script — a service worker on Chrome, an event page on Firefox,
+ * which doesn't implement `background.service_worker`. Nothing here needs a
+ * worker specifically, so the same file serves both.
+ *
+ * All network calls to the backend happen here rather than in the content
+ * script: the background has host_permissions for localhost and isn't subject
+ * to Myntra's page CSP.
  */
+
+// Chrome puts the promise-based extension APIs on `chrome`, Firefox on `browser`.
+globalThis.browser ??= globalThis.chrome;
 
 const API_BASE = 'http://localhost:3000';
 
 async function tryOn({ garmentImageUrl, productTitle, mode }) {
-  const { personFileId } = await chrome.storage.local.get('personFileId');
+  const { personFileId } = await browser.storage.local.get('personFileId');
   if (!personFileId) {
     return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the Zdress icon in your toolbar.' };
   }
@@ -32,7 +39,7 @@ async function tryOn({ garmentImageUrl, productTitle, mode }) {
 
 /** Multi-piece outfit. Each garment is a separate render server-side, so this is slow. */
 async function tryOutfit({ items }) {
-  const { personFileId } = await chrome.storage.local.get('personFileId');
+  const { personFileId } = await browser.storage.local.get('personFileId');
   if (!personFileId) {
     return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the Zdress icon in your toolbar.' };
   }
@@ -77,14 +84,34 @@ async function saveLook(payload) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return { ok: false, error: data.error || 'Could not save that look.' };
 
-  chrome.runtime.sendMessage({ type: 'LOOK_SAVED' }).catch(() => {}); // panel may be closed
+  browser.runtime.sendMessage({ type: 'LOOK_SAVED' }).catch(() => {}); // panel may be closed
   return { ok: true, look: data };
 }
 
-// Clicking the toolbar icon opens the side panel rather than a popup.
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-});
+/*
+ * The panel is the same page on both browsers, but the API around it isn't:
+ * Chrome has `sidePanel`, Firefox has `sidebarAction`, and they are not
+ * compatible. Both are declared in their own manifest, so presence of the
+ * namespace is what the two entry points below switch on.
+ */
+
+// Clicking the toolbar icon opens the panel rather than a popup. Chrome has a
+// setting for it; Firefox needs the click handled, which also gives
+// `sidebarAction.open` the user gesture it insists on.
+if (browser.sidePanel) {
+  browser.runtime.onInstalled.addListener(() => {
+    browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  });
+} else {
+  browser.action.onClicked.addListener(() => browser.sidebarAction.toggle());
+}
+
+/** Opens the panel, from whichever of the two APIs this browser has. */
+function openPanel(windowId) {
+  return browser.sidePanel
+    ? browser.sidePanel.open({ windowId })
+    : browser.sidebarAction.open();
+}
 
 /** Screening only — tells the panel a garment's slot without spending a render. */
 async function classify({ garmentImageUrl, productTitle }) {
@@ -126,21 +153,23 @@ async function advice({ lookId, resultUrl, context, messages, opinion }) {
  * A render swapped into the grid has no room for a conversation, so asking from
  * a card hands the look to the side panel and opens it.
  *
- * `sidePanel.open` needs a user gesture; forwarding the card's click through
- * here keeps one, but a stale message channel or an unusual window can still
- * refuse — hence the plain fallback rather than a silent no-op.
+ * Opening a panel programmatically needs a user gesture on both browsers;
+ * forwarding the card's click through here keeps one, but a stale message
+ * channel or an unusual window can still refuse — hence the plain fallback
+ * rather than a silent no-op. The look is stored first either way, so the
+ * fallback text ("open Zdress from your toolbar") is true when it's shown.
  */
 async function openStylist({ payload, resultUrl }, sender) {
-  await chrome.storage.local.set({ pendingAdvice: { resultUrl, payload, at: Date.now() } });
+  await browser.storage.local.set({ pendingAdvice: { resultUrl, payload, at: Date.now() } });
   try {
-    await chrome.sidePanel.open({ windowId: sender?.tab?.windowId });
+    await openPanel(sender?.tab?.windowId);
     return { ok: true };
   } catch {
     return { ok: false, error: 'Open Zdress from your toolbar — the stylist is waiting on the Try on tab.' };
   }
 }
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'ADVICE') {
     advice(msg).then(sendResponse);
     return true;

@@ -28,7 +28,7 @@ in the grid, at the moment of the decision.
 
 ## What it does
 
-Zdress is a Chrome extension. Upload one photo, once. Then on Myntra, AJIO, Flipkart,
+Zdress is a browser extension, on Chrome and Firefox. Upload one photo, once. Then on Myntra, AJIO, Flipkart,
 Amazon, Nykaa Fashion, SNITCH, Bewakoof, Max Fashion, Libas or Tata CLiQ, every product in
 the grid gains two controls:
 
@@ -51,7 +51,7 @@ vision pre-flight on every product image before a single API unit is spent.
 The architecture is three pieces:
 
 - **Extension (MV3)** — injects the controls, resolves product images, renders results.
-  All retailer-specific knowledge is isolated to one file, `extension/sites.js`; adding a
+  All retailer-specific knowledge is isolated to one file, `extension/shared/sites.js`; adding a
   store is a ten-line entry.
 - **Local Node server** — the only place API keys exist. YouCam and OpenAI are both
   server-to-server; a key shipped inside an extension is trivially extractable and CORS would
@@ -139,7 +139,7 @@ in the docs and obvious within minutes of testing against the real thing.
 
 ## Built with
 
-`javascript` · `chrome-extension` · `manifest-v3` · `node.js` · `express` · `youcam-api` ·
+`javascript` · `chrome-extension` · `firefox-addon` · `webextensions` · `manifest-v3` · `node.js` · `express` · `youcam-api` ·
 `perfect-corp` · `openai` · `sharp`
 
 ---

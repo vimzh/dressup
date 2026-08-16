@@ -18,6 +18,9 @@
  *     than being written into the retailer's own <img>.
  */
 
+// Chrome puts the promise-based extension APIs on `chrome`, Firefox on `browser`.
+globalThis.browser ??= globalThis.chrome;
+
 (() => {
   'use strict';
 
@@ -214,7 +217,7 @@
     layer.querySelector('.zdress-render-img').addEventListener('error', () => {
       layer.remove();
       renders.delete(payload.garmentImageUrl);
-      chrome.storage.local.set({ lastRender: { resultUrl, payload, at: Date.now() } }).catch(() => {});
+      browser.storage.local.set({ lastRender: { resultUrl, payload, at: Date.now() } }).catch(() => {});
       toast('This site blocks outside images, so the render can’t show here.', {
         hint: 'Open Zdress from your toolbar — it’s waiting on the Try on tab.',
       });
@@ -230,7 +233,7 @@
 
   async function saveRender(btn, payload, resultUrl) {
     btn.disabled = true;
-    const res = await chrome.runtime.sendMessage({
+    const res = await browser.runtime.sendMessage({
       type: 'SAVE_LOOK',
       payload: { ...payload, resultUrl },
     });
@@ -250,7 +253,7 @@
    * opens on the Try on tab with the stylist already reading it.
    */
   async function askStylist(payload, resultUrl) {
-    const res = await chrome.runtime
+    const res = await browser.runtime
       .sendMessage({ type: 'ASK_STYLIST', payload, resultUrl })
       .catch(() => null);
     if (!res?.ok) {
@@ -275,7 +278,7 @@
 
       let res;
       try {
-        res = await chrome.runtime.sendMessage({
+        res = await browser.runtime.sendMessage({
           type: 'TRY_ON',
           garmentImageUrl: imageUrl,
           productTitle: info.title,
@@ -301,22 +304,39 @@
         return;
       }
 
+      /*
+       * Pinterest supplies no title on purpose — a pin's heading is SEO noise,
+       * so its adapter returns '' and the slug is a bare id. That filed every
+       * saved pin as "Untitled look" with an "Untitled piece" inside it, while
+       * screening had already named the garment ("black wide-leg denim jeans").
+       * Use that when the site has nothing better.
+       */
+      const pieces = res.pieces || [];
+      const title = info.title || res.garment?.description || '';
+      const productUrl = absUrl(site.link(card));
+
       const payload = {
-        title: info.title,
+        title,
         site: site.label,
         category: res.garment?.category || '',
-        kind: 'single',
-        productUrl: absUrl(site.link(card)),
+        // A moodboard pin is several garments composed onto one body — the same
+        // thing a ticked fit is, so it is saved and listed as one.
+        kind: pieces.length > 1 ? 'outfit' : 'single',
+        pieces: pieces.map((p) => p.title),
+        productUrl,
         garmentImageUrl: imageUrl,
         // Kept so a saved look stays shoppable weeks later, once the render
         // itself is just a picture and the listing is what you actually want.
         products: [
           {
-            title: info.title,
-            url: absUrl(site.link(card)),
+            title,
+            url: productUrl,
             image: imageUrl,
             site: site.label,
-            category: res.garment?.category || '',
+            // One source image, several slots. The per-piece slots travel in
+            // `category` alongside `pieces`, so this row stays unlabelled
+            // rather than being stamped "upper_body+lower_body+shoes".
+            category: pieces.length > 1 ? '' : res.garment?.category || '',
           },
         ],
       };
@@ -340,7 +360,7 @@
   const isSelected = (url) => selection.some((s) => s.imageUrl === url);
 
   async function loadSelection() {
-    ({ selection = [] } = await chrome.storage.local.get('selection'));
+    ({ selection = [] } = await browser.storage.local.get('selection'));
     refreshCards();
   }
 
@@ -362,12 +382,12 @@
         productUrl: absUrl(site.link(card)),
       };
       selection = [...selection, item];
-      await chrome.storage.local.set({ selection });
+      await browser.storage.local.set({ selection });
       refreshCards();
       labelSlot(item, card); // fills in the category, then flags any clash
       return;
     }
-    await chrome.storage.local.set({ selection });
+    await browser.storage.local.set({ selection });
     refreshCards();
   }
 
@@ -378,12 +398,12 @@
    * than after a minute of rendering.
    */
   async function labelSlot(item, card) {
-    const res = await chrome.runtime
+    const res = await browser.runtime
       .sendMessage({ type: 'CLASSIFY', garmentImageUrl: item.imageUrl, productTitle: item.title })
       .catch(() => null);
     if (!res?.ok) return;
 
-    const { selection: current = [] } = await chrome.storage.local.get('selection');
+    const { selection: current = [] } = await browser.storage.local.get('selection');
     const idx = current.findIndex((s) => s.imageUrl === item.imageUrl);
     if (idx === -1) return; // unticked while we were asking
 
@@ -392,7 +412,7 @@
     const clash = current.find(
       (s, i) => i !== idx && s.category && s.category === res.category
     );
-    await chrome.storage.local.set({ selection: current });
+    await browser.storage.local.set({ selection: current });
 
     if (clash) {
       toast(`You already picked a ${slotName(res.category)} — “${clash.title}”.`, {
@@ -433,7 +453,7 @@
     });
   }
 
-  chrome.storage.onChanged.addListener((changes, area) => {
+  browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.selection) {
       selection = changes.selection.newValue || [];
       refreshCards();

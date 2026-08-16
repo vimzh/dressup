@@ -52,8 +52,19 @@ function pump() {
     active++;
     recent.push(Date.now());
 
-    job
-      .fn()
+    /*
+     * `fn` must be invoked inside a promise, not called bare.
+     *
+     * Every caller here is `() => getClient().chat.completions.create(...)`, and
+     * `getClient()` throws *synchronously* when OPENAI_API_KEY is missing. Called
+     * bare, that throw escapes before `.finally` is ever attached: the slot is
+     * never released, so three such failures pin `active` at MAX_CONCURRENT and
+     * every later call queues forever. It also escapes into whatever invoked
+     * pump() — a `.finally` handler (unhandled rejection) or a setTimeout
+     * (uncaught exception, which takes the process down).
+     */
+    Promise.resolve()
+      .then(job.fn)
       .then(job.resolve, job.reject)
       .finally(() => {
         active--;
@@ -98,7 +109,9 @@ export function dedupe(key, fn) {
   const existing = inFlight.get(key);
   if (existing) return existing;
 
-  const p = fn().finally(() => inFlight.delete(key));
+  // Same reasoning as pump(): a synchronous throw from `fn` must come back as a
+  // rejected promise, not as a throw from a function documented to return one.
+  const p = Promise.resolve().then(fn).finally(() => inFlight.delete(key));
   inFlight.set(key, p);
   return p;
 }

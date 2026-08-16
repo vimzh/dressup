@@ -1,8 +1,8 @@
 # Zdress — virtual try-on where you actually shop
 
-<img src="extension/icons/icon128.png" width="72" alt="Zdress">
+<img src="extension/shared/icons/icon128.png" width="72" alt="Zdress">
 
-A Chrome extension that puts a **"Try this look"** button on every product across ten fashion
+A Chrome and Firefox extension that puts a **"Try this look"** button on every product across ten fashion
 retailers — **Myntra, AJIO, Flipkart, Amazon, Nykaa Fashion, SNITCH, Bewakoof, Max Fashion,
 Libas and Tata CLiQ**. Upload your photo once; click any product and the card's photo becomes
 *you* wearing it, without leaving the page.
@@ -150,8 +150,8 @@ and its `og:title` is "90年代 ファッション メンズ". The image alone i
 ## Saving looks
 
 Renders carry a **save** button — on the swapped card for a single piece, under the result for
-a fit. Saved looks collect in a full-height **side panel** (Chrome's Side Panel API, not a
-popup), split into two tabs: *Try on* for the current fit, *Saved* for the library. Your photo
+a fit. Saved looks collect in a full-height **side panel** (Chrome's Side Panel API, Firefox's
+sidebar — not a popup), split into two tabs: *Try on* for the current fit, *Saved* for the library. Your photo
 lives behind the header avatar in settings, since it is set once and rarely changed.
 
 The panel is user-resizable, so its content is capped at 520px and centred rather than
@@ -201,6 +201,13 @@ effort, on its own `OPENAI_STYLIST_MODEL`.
 
 Asking from a card in the grid hands the render to the side panel and opens it, because a
 200px tile inside someone else's page is the wrong place to hold a conversation.
+
+On Firefox the panel doesn't open by itself here, and can't: `sidebarAction.open` is only
+callable from a user input handler, and Firefox
+[does not count](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/User_actions)
+a click that arrived over `runtime.sendMessage` as one. The look is handed over regardless — it's
+written to storage before the open is attempted, and the panel picks it up on open — so the
+difference is one click: the card says the stylist is waiting, and it is.
 
 ## How it works
 
@@ -285,9 +292,28 @@ curl -s http://localhost:3000/api/health
 
 ### 2. Extension
 
+One source tree builds both browsers. From the repo root:
+
+```bash
+npm run build
+```
+
+That writes `dist/chrome` and `dist/firefox`. No dependencies and no bundler — it copies
+`extension/shared`, lays the target's files over it, and merges the manifest.
+
+**Chrome**
+
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. **Load unpacked** → select the `extension/` folder
+3. **Load unpacked** → select `dist/chrome`
+
+**Firefox** (128 or newer)
+
+1. Open `about:debugging#/runtime/this-firefox`
+2. **Load Temporary Add-on…** → select `dist/firefox/manifest.json`
+
+A temporary add-on is removed when Firefox closes, which is the normal way to run an unsigned
+extension; `npm run package` produces the zip you'd submit to either store instead.
 
 ### 3. Use it
 
@@ -311,13 +337,52 @@ server/
   src/library.js          Saved looks + collections (files on disk)
   tools/convert-images.js Standalone converter, for files you already have
 extension/
-  manifest.json    MV3
-  sites.js         Per-retailer adapters — the only site-specific code
-  content.js       Button + tick injection, image resolution, result overlay
-  content.css      Injected styles (namespaced, !important against retailer CSS)
-  background.js    Service worker — all backend calls
-  sidepanel.html/js Side panel — photo, current fit, collections, saved looks
+  manifest.base.json      MV3 — everything both browsers agree on
+  chrome/manifest.json    Service worker + side_panel
+  firefox/manifest.json   Event page + sidebar_action + gecko settings
+  shared/
+    sites.js              Per-retailer adapters — the only site-specific code
+    content.js            Button + tick injection, image resolution, result overlay
+    content.css           Injected styles (namespaced, !important against retailer CSS)
+    background.js         Service worker / event page — all backend calls
+    sidepanel.html/js     Side panel — photo, current fit, collections, saved looks
+scripts/build.mjs         Assembles dist/chrome and dist/firefox
 ```
+
+## Two browsers, one source tree
+
+The code is shared whole; only the manifest differs, and only in three places.
+
+**The namespace.** Chrome puts the promise-based APIs on `chrome`, Firefox on `browser`. Every
+entry script opens with `globalThis.browser ??= globalThis.chrome` and then uses `browser.*`
+throughout — a line rather than a polyfill, because Chrome's MV3 `chrome.*` already returns
+promises for everything used here.
+
+**The background.** Firefox
+[doesn't implement](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/background)
+`background.service_worker`, so it gets an event page from the same file. Nothing in
+`background.js` needs a worker specifically.
+
+**The panel.** Chrome's `sidePanel` and Firefox's `sidebarAction` are different APIs for the
+same idea and are explicitly not compatible, so `background.js` branches on which one exists.
+`sidepanel.html` itself is untouched — it's an extension page either way.
+
+Everything else is the manifest split. `manifest.base.json` holds what both agree on, including
+the retailer match list and the version, because those are exactly what rots when two manifests
+are kept side by side; `chrome/` and `firefox/` hold only their differences and are merged over
+the base at build time. Any other file dropped into a target directory is copied over the shared
+build, so a browser-specific override needs no change to the build script.
+
+```bash
+npm run build            # both
+npm run build:firefox    # one
+npm run package          # zips for store submission
+npm run lint:firefox     # Mozilla's own web-ext lint
+```
+
+`lint:firefox` reports clean apart from two `UNSUPPORTED_API` warnings for `sidePanel` — that's
+the Chrome branch of the feature detection, which the linter reads statically and Firefox never
+executes.
 
 ### tools/convert-images.js
 
@@ -386,7 +451,7 @@ from the docs:
 
 ## Supported sites
 
-All retailer-specific knowledge lives in one file, `extension/sites.js`. Adding a site means
+All retailer-specific knowledge lives in one file, `extension/shared/sites.js`. Adding a site means
 adding one entry: how to find cards, where the image is, and how to upgrade the thumbnail.
 
 | Site | Cards located by | Thumbnail → try-on resolution | Verified |
@@ -469,4 +534,4 @@ injection because Myntra is a React SPA and swaps the grid in place on page chan
 
 Your photo goes to your own local server and on to YouCam for rendering. Nothing else
 touches it, and it isn't stored server-side — only the YouCam `file_id` is kept, in
-`chrome.storage.local`.
+`browser.storage.local`.

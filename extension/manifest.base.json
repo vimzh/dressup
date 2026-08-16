@@ -5,19 +5,11 @@
   "description": "See yourself in anything you find while shopping, without leaving the page. Powered by YouCam Apparel VTO.",
   "permissions": [
     "storage",
-    "unlimitedStorage",
-    "sidePanel"
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "http://localhost:3000/*"
   ],
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
-  },
-  "side_panel": {
-    "default_path": "sidepanel.html"
-  },
   "action": {
     "default_title": "Zdress",
     "default_icon": {

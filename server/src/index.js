@@ -24,9 +24,22 @@ import * as stylist from './stylist.js';
 const app = express();
 const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
 
-// The extension calls from the myntra.com page context and from the popup
-// (chrome-extension://), so origins vary. This server is local-only.
-app.use(cors());
+/*
+ * CORS is scoped to the extension, not opened to the web.
+ *
+ * "Local-only" is not the same as private: every page the user visits can reach
+ * http://localhost:3000, and a blanket `cors()` handed all of them a readable
+ * GET /api/library and a working DELETE /api/looks/:id. Nothing on the web has
+ * any business here — every call comes from the service worker or the side
+ * panel, both chrome-extension:// origins, and extension fetches made under
+ * host_permissions may carry no Origin header at all, so a missing one is
+ * allowed too. Denying an origin only withholds the CORS headers, which is
+ * exactly what stops a page reading the response or preflighting a DELETE.
+ */
+const allowedOrigin = (origin) =>
+  !origin || origin.startsWith('chrome-extension://') || /^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin);
+
+app.use(cors({ origin: (origin, cb) => cb(null, allowedOrigin(origin)) }));
 app.use(express.json({ limit: '1mb' }));
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -358,9 +371,21 @@ app.post('/api/outfit', async (req, res) => {
     //    pick per slot and tell the user what was dropped.
     const bySlot = new Map();
     const skipped = [];
-    for (const s of usable) {
-      const slot = s.garment.category;
-      if (bySlot.has(slot)) skipped.push({ title: bySlot.get(slot).productTitle, why: `replaced by another ${slot.replace('_', ' ')} piece` });
+    for (const [i, s] of usable.entries()) {
+      /*
+       * A piece screening called apparel without naming a slot is not a slot
+       * clash — it is an unknown. Keying those by index keeps them all in the
+       * plan (YouCam detects the category itself from 'auto') rather than
+       * silently collapsing a top and a pair of jeans into one another, and
+       * keeps `slot.replace` off a null.
+       */
+      const slot = s.garment.category || `unknown:${i}`;
+      if (bySlot.has(slot)) {
+        skipped.push({
+          title: bySlot.get(slot).productTitle,
+          why: `replaced by another ${slot.replace('_', ' ')} piece`,
+        });
+      }
       bySlot.set(slot, s);
     }
     if (bySlot.has('full_body')) {
@@ -378,9 +403,17 @@ app.post('/api/outfit', async (req, res) => {
     log(`  plan: ${plan.map((p) => p.garment.category).join(' -> ')}${skipped.length ? ` (skipped ${skipped.length})` : ''}`);
 
     // 3. Apply each piece in turn, feeding each render into the next step.
+    //    `|| 'auto'` matches /api/tryon: screening can call something apparel and
+    //    still decline to pick a slot, and passing that null through fails the
+    //    category guard in youcam.js — sinking the whole outfit over one piece
+    //    that YouCam would happily have detected itself.
     const resultUrl = await renderChain(
       personFileId,
-      plan.map((p) => ({ buffer: p.buffer, contentType: p.contentType, category: p.garment.category }))
+      plan.map((p) => ({
+        buffer: p.buffer,
+        contentType: p.contentType,
+        category: p.garment.category || 'auto',
+      }))
     );
 
     res.json({

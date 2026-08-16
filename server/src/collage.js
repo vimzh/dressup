@@ -97,8 +97,10 @@ Return an empty list if nothing wearable is laid out.`;
 /**
  * Locates the wearable garments in a flat-lay.
  * @param {Buffer} buffer the normalised image
+ * @param {string} contentType its real media type — `normalizeImage` passes PNGs
+ *   through untouched, and labelling those as JPEG makes OpenAI reject the image.
  */
-async function locateItems(buffer) {
+async function locateItems(buffer, contentType) {
   const res = await runLimited(() => getClient().chat.completions.create({
     model: MODEL,
     reasoning_effort: 'low',
@@ -110,7 +112,7 @@ async function locateItems(buffer) {
           { type: 'text', text: 'Locate the wearable items.' },
           // Full detail here: the model is being asked for coordinates, and a
           // low-detail image makes those noticeably worse.
-          { type: 'image_url', image_url: { url: toDataUrl(buffer) } },
+          { type: 'image_url', image_url: { url: toDataUrl(buffer, contentType) } },
         ],
       },
     ],
@@ -322,7 +324,7 @@ function grow(box, edges, by = 0.09) {
  */
 export async function splitCollage(buffer) {
   const meta = await sharp(buffer).metadata();
-  const found = await locateItems(buffer);
+  const found = await locateItems(buffer, meta.format === 'png' ? 'image/png' : 'image/jpeg');
   if (!found.length) return [];
 
   const pieces = [];
