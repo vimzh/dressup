@@ -34,7 +34,7 @@ function getClient() {
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['is_apparel', 'category', 'confidence', 'reason', 'description'],
+  required: ['is_apparel', 'category', 'confidence', 'reason', 'description', 'source_type'],
   properties: {
     is_apparel: {
       type: 'boolean',
@@ -53,6 +53,11 @@ const SCHEMA = {
     description: {
       type: 'string',
       description: 'A brief description of the garment, e.g. "navy ribbed training tank".',
+    },
+    source_type: {
+      type: 'string',
+      enum: ['clean_product_shot', 'on_model_front', 'on_model_angled', 'cluttered_or_cropped'],
+      description: 'How the garment is presented, which decides whether it needs cleaning up first.',
     },
   },
 };
@@ -83,6 +88,15 @@ shorts on a listing titled "Track Pants" is lower_body. A listing titled "Tracks
 is full_body even if the jacket dominates the frame.
 
 Set confidence below 0.5 only when the title and image genuinely conflict.
+
+Also classify how the garment is presented, which decides whether it needs cleaning up
+before rendering:
+  - clean_product_shot   — garment alone (flat-lay, ghost mannequin, hanger) on a plain
+                           background, facing forward, fully visible. Ideal already.
+  - on_model_front       — worn by a person, facing the camera, garment mostly unobstructed.
+  - on_model_angled      — worn at a three-quarter or side angle, or partly hidden by arms,
+                           hair or props.
+  - cluttered_or_cropped — busy background, heavy styling, or the garment is cut off.
 
 Keep "reason" to one short sentence a shopper would understand, naming the garment.
 Keep "description" to a short noun phrase: colour, material or pattern, then garment.`;
@@ -132,6 +146,7 @@ export async function inspectGarment(imageDataUrl, productTitle = '') {
     confidence: parsed.confidence,
     reason: parsed.reason,
     description: parsed.description,
+    sourceType: parsed.source_type,
   };
 }
 

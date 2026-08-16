@@ -208,6 +208,39 @@ node tools/convert-images.js "https://assets-jiocdn.ajio.com/…/product.jpg"
 Accepts files, directories, or URLs; converts AVIF/HEIC/WebP/TIFF to JPEG or PNG, downscales
 past `--max`, and flattens transparency onto white.
 
+## What garment input does YouCam render best from?
+
+Perfect Corp documents requirements for the *person* photo and says nothing specific about the
+garment reference, and third-party advice ("flat-lay and ghost mannequin both work well") is not
+evidence about this engine. So it was measured: `server/tools/stress-inputs.js` builds ten
+variants of one garment, renders each on the same person, and grades the outputs against the
+original listing photo for garment fidelity, anatomy and realism.
+
+Two garments, twenty renders. The result was consistent and not the expected one:
+
+| Input variant | Tracksuit | Zip jacket |
+|---|---|---|
+| Original listing photo, untouched | **13/15** | 12/15 |
+| Padded onto a plain background (white / black / grey) | 11–12 | **13** |
+| Cropped tighter on the garment | 13 | 10 |
+| Rebuilt as a flat-lay or ghost mannequin (image model) | 9–12 | 11–12 |
+
+**Rebuilding the garment with an image model never won, and sometimes destroyed the product.**
+Asked to produce a clean flat-lay of a *tracksuit*, the image model returned the jacket alone —
+silently dropping the trousers — and YouCam then invented grey leggings to fill the gap. That is
+precisely the hallucinated output the clean-up was meant to prevent.
+
+The non-generative variants land within a point or two of the original, which is inside the
+grader's noise. Nothing beat simply sending the retailer's own photo.
+
+So there is no preprocessing in the default path. The experiment is kept as
+`GARMENT_PREP=1`, which routes garments through `src/prep.js` (rebuild, then a fidelity check
+that discards anything that drifted from the source), for anyone who wants to re-run the
+comparison on their own catalogue.
+
+The levers that *did* measurably improve output remain the ones already in place: the correct
+`garment_category`, and a clear full-body person photo.
+
 ## Verified against the live APIs
 
 The YouCam cloth contract used here was confirmed against the running service, not just read

@@ -16,6 +16,7 @@ import { uploadImage, createClothTask, pollClothTask, MAX_UPLOAD_BYTES } from '.
 import { inspectGarment, inspectPerson } from './garment.js';
 import { normalizeImage, toDataUrl } from './image.js';
 import * as library from './library.js';
+import { prepareGarment } from './prep.js';
 
 const app = express();
 const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -107,15 +108,29 @@ app.post('/api/tryon', async (req, res) => {
       return res.status(422).json({ error: garment.reason, code: 'NOT_APPAREL', garment });
     }
 
-    // 3. Hand the normalised bytes to YouCam.
-    const garmentFileId = await uploadImage(buffer, {
+    /*
+     * 3. Optional garment clean-up. OFF by default: measured across ten input
+     *    variants on two garments, rebuilding the garment with an image model
+     *    never beat the untouched original and sometimes destroyed it — a
+     *    tracksuit came back as a jacket alone, and YouCam then invented
+     *    leggings for the missing half. See tools/stress-inputs.js.
+     */
+    let garmentBuffer = buffer;
+    if (process.env.GARMENT_PREP === '1') {
+      const prep = await prepareGarment(buffer, garment);
+      log(`  prep: ${prep.prepped ? 'applied' : 'skipped'} — ${prep.why}`);
+      garmentBuffer = prep.buffer;
+    }
+
+    // 4. Hand the bytes to YouCam.
+    const garmentFileId = await uploadImage(garmentBuffer, {
       fileName: contentType === 'image/png' ? 'garment.png' : 'garment.jpg',
       contentType,
       kind: 'cloth',
     });
     log(`  garment file_id: ${garmentFileId}`);
 
-    // 3 & 4. Start the task and wait it out.
+    // 5. Start the task and wait it out.
     const taskId = await createClothTask({
       personFileId,
       garmentFileId,

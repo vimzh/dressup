@@ -24,6 +24,11 @@ const ICONS = {
   trash: '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+  menu: '<path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'folder-minus': '<path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 };
 
 const icon = (name, size = 14) =>
@@ -50,6 +55,7 @@ let lastTab = 'Try';
 
 function showTab(which) {
   lastTab = which;
+  closeMenu();
   for (const [name, [tab, pane]] of Object.entries(panes)) {
     const on = name === which;
     tab.setAttribute('aria-selected', String(on));
@@ -86,6 +92,15 @@ function showPhoto(dataUrl) {
   $('replace').hidden = false;
 }
 
+/** Back to the empty drop target, as if the photo had never been added. */
+function clearPhoto() {
+  $('preview').removeAttribute('src');
+  $('preview').hidden = true;
+  $('ph').hidden = false;
+  $('replace').hidden = true;
+  $('file').value = '';
+}
+
 /**
  * First run shows the welcome card and nothing else; once a photo exists the
  * card gives way to a quiet link, since changing it is rare.
@@ -93,6 +108,8 @@ function showPhoto(dataUrl) {
 function reflectPhotoState(hasPhoto) {
   $('needPhoto').hidden = hasPhoto;
   $('photoLinkRow').hidden = !hasPhoto;
+  $('removeRow').hidden = !hasPhoto;
+  if (!hasPhoto) $('removeConfirm').hidden = true;
 }
 
 chrome.storage.local.get(['personFileId', 'personPreview']).then(({ personFileId, personPreview }) => {
@@ -102,6 +119,33 @@ chrome.storage.local.get(['personFileId', 'personPreview']).then(({ personFileId
 });
 
 $('replace').addEventListener('click', () => $('file').click());
+
+/*
+ * Removing the photo is local-only: the bytes never rested on the Zdress server,
+ * and YouCam's uploaded file expires on its own, so clearing the stored id and
+ * preview is the whole of it. Saved looks are renders, not the photo, and stay.
+ */
+$('removePhoto').addEventListener('click', () => {
+  $('removeConfirm').hidden = false;
+  $('removeRow').hidden = true;
+  $('removeYes').focus();
+});
+
+$('removeNo').addEventListener('click', () => {
+  $('removeConfirm').hidden = true;
+  $('removeRow').hidden = false;
+  $('removePhoto').focus();
+});
+
+$('removeYes').addEventListener('click', async () => {
+  await chrome.storage.local.remove(['personFileId', 'personPreview']);
+  clearPhoto();
+  reflectPhotoState(false);
+  // The old render is of a person whose photo is gone; don't leave it sitting there.
+  $('fitResult').hidden = true;
+  fitPayload = null;
+  setStatus($('photoStatus'), 'Photo removed.', '');
+});
 
 $('file').addEventListener('change', async () => {
   const file = $('file').files?.[0];
@@ -272,6 +316,8 @@ let library = { collections: [], looks: [] };
 let activeCollection = 'all';
 
 async function loadLibrary() {
+  closeMenu();
+  $('collConfirm').hidden = true;
   try {
     const res = await fetch(`${API}/api/library`);
     library = await res.json();
@@ -295,11 +341,18 @@ function renderLibrary() {
   if (library.looks.some((l) => !l.collectionId)) chips.push({ id: 'unsorted', name: 'Unsorted' });
 
   $('chips').innerHTML = chips
-    .map(
-      (c) => `<button class="chip" data-id="${esc(c.id)}" aria-pressed="${c.id === activeCollection}">
-        ${esc(c.name)}<span class="n">${countIn(c.id)}</span>
-      </button>`
-    )
+    .map((c) => {
+      // A collection can only be deleted from its own chip, and only while it's
+      // the one in view — so the strip stays a filter, not a row of controls.
+      const real = c.id !== 'all' && c.id !== 'unsorted';
+      const del =
+        real && c.id === activeCollection
+          ? `<span class="x" data-del-collection="${esc(c.id)}" role="button" tabindex="0" title="Delete collection" aria-label="Delete collection ${esc(c.name)}">${icon('x', 11)}</span>`
+          : '';
+      return `<button class="chip" data-id="${esc(c.id)}" aria-pressed="${c.id === activeCollection}">
+        ${esc(c.name)}<span class="n">${countIn(c.id)}</span>${del}
+      </button>`;
+    })
     .join('');
 
   const visible =
@@ -333,7 +386,7 @@ function renderLibrary() {
       return `<div class="look" data-id="${esc(l.id)}">
         <img src="${API}${esc(l.imageUrl)}" alt="${esc(l.title)}" loading="lazy">
         ${l.kind === 'outfit' ? '<span class="kind">Fit</span>' : ''}
-        <button class="del" title="Delete look" aria-label="Delete look">${icon('trash', 13)}</button>
+        <button class="menu-btn" aria-haspopup="true" aria-expanded="false" title="Look options" aria-label="Options for ${esc(l.title || 'this look')}">${icon('menu', 13)}</button>
         <div class="cap">
           <b>${esc(l.title || 'Untitled look')}</b>
           <span>${esc(l.site || '')}${l.site && l.category ? ' · ' : ''}${esc((l.category || '').replace('_', ' '))}</span>
@@ -344,11 +397,53 @@ function renderLibrary() {
     .join('');
 }
 
-$('chips').addEventListener('click', (e) => {
+$('chips').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-del-collection]');
+  if (del) {
+    askDeleteCollection(del.dataset.delCollection);
+    return;
+  }
+
+  $('collConfirm').hidden = true;
   const chip = e.target.closest('.chip');
   if (!chip) return;
   activeCollection = chip.dataset.id;
   renderLibrary();
+});
+
+/*
+ * Deleting a collection keeps its looks — they fall back to Unsorted — so this
+ * says exactly that rather than implying the pictures go with it.
+ */
+function askDeleteCollection(cid) {
+  const name = library.collections.find((c) => c.id === cid)?.name || 'this collection';
+  const n = countIn(cid);
+  $('collConfirm').innerHTML = `
+    <p>Delete the collection <strong>${esc(name)}</strong>?${n ? ` Its ${n} look${n === 1 ? '' : 's'} will move to Unsorted.` : ''}</p>
+    <div class="row">
+      <button class="ghost danger" data-confirm-del="${esc(cid)}">Delete collection</button>
+      <button class="ghost" data-cancel-del="1">Cancel</button>
+    </div>`;
+  $('collConfirm').hidden = false;
+}
+
+$('collConfirm').addEventListener('click', async (e) => {
+  const go = e.target.closest('[data-confirm-del]');
+  if (go) {
+    $('collConfirm').hidden = true;
+    await fetch(`${API}/api/collections/${go.dataset.confirmDel}`, { method: 'DELETE' });
+    activeCollection = 'all';
+    loadLibrary();
+  } else if (e.target.closest('[data-cancel-del]')) {
+    $('collConfirm').hidden = true;
+  }
+});
+
+$('chips').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-del-collection]')) {
+    e.preventDefault();
+    e.target.click();
+  }
 });
 
 $('addCollection').addEventListener('click', async () => {
@@ -367,13 +462,136 @@ $('newCollection').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') $('addCollection').click();
 });
 
-$('looks').addEventListener('click', async (e) => {
-  const del = e.target.closest('.del');
-  if (!del) return;
-  const id = del.closest('.look').dataset.id;
-  await fetch(`${API}/api/looks/${id}`, { method: 'DELETE' });
-  loadLibrary();
+/* ------------------------------------------------------------- card menu */
+
+/*
+ * Filing, unfiling and deleting all hang off one hamburger on the card, so the
+ * thumbnail stays a thumbnail. A collection can also be created from in here —
+ * naming one mid-save is the moment you actually know what to call it, and
+ * making the user go back up to the header field to do it loses the look.
+ */
+let menuLookId = null;
+
+function closeMenu() {
+  $('cardMenu').hidden = true;
+  $('cardMenu').innerHTML = '';
+  document.querySelectorAll('.menu-btn[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  menuLookId = null;
+}
+
+function openMenu(btn, look) {
+  const current = look.collectionId || null;
+
+  const rows = library.collections
+    .map(
+      (c) => `<button class="mi" role="menuitemradio" data-move="${esc(c.id)}" aria-checked="${c.id === current}">
+        ${c.id === current ? icon('check', 13) : icon('folder', 13)}<span class="lbl">${esc(c.name)}</span>
+      </button>`
+    )
+    .join('');
+
+  $('cardMenu').innerHTML = `
+    <div class="mh">Collection</div>
+    <div class="mlist">${rows || '<div class="mh" style="text-transform:none;letter-spacing:0;font-weight:400">No collections yet.</div>'}</div>
+    <div class="mnew">
+      <input type="text" id="menuNewCollection" placeholder="New collection…" maxlength="60">
+      <button class="ghost" id="menuAddCollection">Add</button>
+    </div>
+    ${current ? `<hr><button class="mi" role="menuitem" data-move="">${icon('folder-minus', 13)}<span class="lbl">Remove from collection</span></button>` : ''}
+    <hr>
+    <button class="mi danger" role="menuitem" data-delete="1">${icon('trash', 13)}<span class="lbl">Delete look</span></button>`;
+
+  menuLookId = look.id;
+  btn.setAttribute('aria-expanded', 'true');
+
+  // Placed against the button's rect and nudged back inside the panel, which is
+  // user-resizable and often only a few hundred pixels wide.
+  const menu = $('cardMenu');
+  menu.hidden = false;
+  const r = btn.getBoundingClientRect();
+  const w = menu.offsetWidth;
+  const h = menu.offsetHeight;
+  menu.style.left = `${Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8))}px`;
+  menu.style.top = `${r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
+}
+
+$('looks').addEventListener('click', (e) => {
+  const btn = e.target.closest('.menu-btn');
+  if (!btn) return;
+  const id = btn.closest('.look').dataset.id;
+  const wasOpen = menuLookId === id;
+  closeMenu();
+  if (wasOpen) return;
+  const look = library.looks.find((l) => l.id === id);
+  if (look) openMenu(btn, look);
 });
+
+$('cardMenu').addEventListener('click', async (e) => {
+  const id = menuLookId;
+  if (!id) return;
+
+  const add = e.target.closest('#menuAddCollection');
+  if (add) {
+    const name = $('menuNewCollection').value.trim();
+    if (!name) return $('menuNewCollection').focus();
+    const res = await fetch(`${API}/api/collections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    // A new collection made from a card is made *for* that card, so file it there.
+    const created = await res.json().catch(() => null);
+    closeMenu();
+    if (created?.id) await fetch(`${API}/api/looks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collectionId: created.id }),
+    });
+    loadLibrary();
+    return;
+  }
+
+  const move = e.target.closest('[data-move]');
+  if (move) {
+    const collectionId = move.dataset.move || null;
+    closeMenu();
+    await fetch(`${API}/api/looks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collectionId }),
+    });
+    loadLibrary();
+    return;
+  }
+
+  if (e.target.closest('[data-delete]')) {
+    closeMenu();
+    await fetch(`${API}/api/looks/${id}`, { method: 'DELETE' });
+    loadLibrary();
+  }
+});
+
+$('cardMenu').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.id === 'menuNewCollection') {
+    e.preventDefault();
+    $('menuAddCollection').click();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (!menuLookId) return;
+  if (e.target.closest('#cardMenu') || e.target.closest('.menu-btn')) return;
+  closeMenu();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMenu();
+});
+
+// Fixed positioning doesn't follow the list, so the menu is dismissed instead of
+// left floating over an unrelated card.
+document.querySelector('main').addEventListener('scroll', closeMenu);
+window.addEventListener('resize', closeMenu);
 
 // A save can happen while the panel is open on the other tab.
 chrome.runtime.onMessage.addListener((msg) => {
