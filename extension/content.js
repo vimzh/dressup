@@ -238,15 +238,57 @@
       </div>`;
   }
 
-  function resultView({ resultUrl, garment, title }) {
+  /**
+   * Save control shown under a finished render. Collections are fetched lazily
+   * so the picker reflects anything created in the side panel since page load.
+   */
+  function saveBar(payload) {
+    return `
+      <div class="dressup-save" data-payload="${esc(JSON.stringify(payload))}">
+        <select class="dressup-select" aria-label="Collection"><option value="">Unsorted</option></select>
+        <button class="dressup-save-btn" type="button">Save look</button>
+      </div>`;
+  }
+
+  function resultView({ resultUrl, garment, title, payload }) {
     return `
       <div class="dressup-result">
         <img class="dressup-result-img" src="${esc(resultUrl)}" alt="You wearing ${esc(title)}">
         <div class="dressup-caption">
           ${esc(title)}
           ${garment?.description ? `<span class="dressup-desc">${esc(garment.description)}</span>` : ''}
+          ${saveBar(payload)}
         </div>
       </div>`;
+  }
+
+  /** Populates the collection picker and wires the save button. */
+  async function initSaveBar() {
+    const bar = overlay?.querySelector('.dressup-save');
+    if (!bar) return;
+
+    const select = bar.querySelector('.dressup-select');
+    const btn = bar.querySelector('.dressup-save-btn');
+
+    const { collections = [] } = await chrome.runtime.sendMessage({ type: 'LIST_COLLECTIONS' });
+    for (const c of collections) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      select.appendChild(opt);
+    }
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      const payload = { ...JSON.parse(bar.dataset.payload), collectionId: select.value || null };
+      const res = await chrome.runtime.sendMessage({ type: 'SAVE_LOOK', payload });
+      btn.textContent = res?.ok ? 'Saved ✓' : 'Save failed';
+      if (!res?.ok) {
+        btn.disabled = false;
+        bar.insertAdjacentHTML('beforeend', `<p class="dressup-save-err">${esc(res?.error || '')}</p>`);
+      }
+    });
   }
 
   function errorView(code, message) {
@@ -296,7 +338,21 @@
       // The modal may have been dismissed mid-render; a finished render is worth
       // re-opening rather than dropping.
       if (res?.ok) {
-        openOverlay(resultView({ ...res, title: info.title }));
+        openOverlay(
+          resultView({
+            ...res,
+            title: info.title,
+            payload: {
+              resultUrl: res.resultUrl,
+              title: info.title,
+              site: site.label,
+              category: res.garment?.category || '',
+              kind: 'single',
+              productUrl: site.link(card) || '',
+            },
+          })
+        );
+        initSaveBar();
       } else {
         openOverlay(errorView(res?.code, res?.error || 'Try-on failed.'));
       }
@@ -311,6 +367,14 @@
       ...(skipped || []).map((s) => `Skipped <strong>${esc(s.title)}</strong> — ${esc(s.why)}.`),
       ...(rejected || []).map((r) => `Couldn’t use <strong>${esc(r.title)}</strong> — ${esc(r.reason)}`),
     ];
+    const payload = {
+      resultUrl,
+      title: applied.map((a) => a.title).join(' + '),
+      site: site.label,
+      category: applied.map((a) => a.category).join('+'),
+      kind: 'outfit',
+      pieces: applied.map((a) => a.title),
+    };
     return `
       <div class="dressup-result">
         <img class="dressup-result-img" src="${esc(resultUrl)}" alt="You wearing the selected outfit">
@@ -319,6 +383,7 @@
             ${applied.map((a) => `<span class="dressup-pill">${esc(a.description || a.title)}</span>`).join('')}
           </div>
           ${notes.length ? `<div class="dressup-notes">${notes.join('<br>')}</div>` : ''}
+          ${saveBar(payload)}
         </div>
       </div>`;
   }
@@ -354,8 +419,12 @@
 
     try {
       const res = await chrome.runtime.sendMessage({ type: 'TRY_OUTFIT', items });
-      if (res?.ok) openOverlay(outfitResultView(res));
-      else openOverlay(errorView(res?.code, res?.error || 'Outfit try-on failed.'));
+      if (res?.ok) {
+        openOverlay(outfitResultView(res));
+        initSaveBar();
+      } else {
+        openOverlay(errorView(res?.code, res?.error || 'Outfit try-on failed.'));
+      }
     } finally {
       stopTicker();
     }

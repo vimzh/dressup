@@ -54,6 +54,23 @@ by accident and the outfit still renders, with a note explaining the watch was l
 
 The cost is time — each piece is its own render, so a three-piece fit takes roughly a minute.
 
+## Saving looks
+
+Every finished render gets a **Save look** control with a collection picker. Saved looks
+collect in a full-height **side panel** (Chrome's Side Panel API, not a popup), split into two
+tabs: *Try on* for your photo and the current fit, *Saved* for the library.
+
+Because the selection and the library are both extension-level rather than page-level, a
+single collection can hold looks from Myntra, Flipkart and AJIO side by side — the point of
+the feature is consolidating across stores.
+
+**Renders are stored as files by the local server, not as links.** YouCam returns pre-signed
+URLs that expire after two hours, so a saved link would be a dead image by the next day. The
+trade-off is that the library needs the server running; when it isn't, the panel says so
+plainly instead of rendering broken thumbnails.
+
+Deleting a collection keeps its looks — they fall back to *Unsorted* rather than vanishing.
+
 ## How it works
 
 ```
@@ -156,6 +173,7 @@ server/
   src/youcam.js           YouCam client — upload, create task, poll
   src/garment.js          OpenAI vision pre-flight (garment + person photo)
   src/image.js            Format/size normalisation (AVIF, HEIC, oversized, alpha)
+  src/library.js          Saved looks + collections (files on disk)
   tools/convert-images.js Standalone converter, for files you already have
 extension/
   manifest.json    MV3
@@ -163,7 +181,7 @@ extension/
   content.js       Button + tick injection, image resolution, result overlay
   content.css      Injected styles (namespaced, !important against retailer CSS)
   background.js    Service worker — all backend calls
-  popup.html/js    Photo upload and the outfit tray
+  sidepanel.html/js Side panel — photo, current fit, collections, saved looks
 ```
 
 ### tools/convert-images.js

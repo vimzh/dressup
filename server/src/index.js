@@ -15,6 +15,7 @@ import multer from 'multer';
 import { uploadImage, createClothTask, pollClothTask, MAX_UPLOAD_BYTES } from './youcam.js';
 import { inspectGarment, inspectPerson } from './garment.js';
 import { normalizeImage, toDataUrl } from './image.js';
+import * as library from './library.js';
 
 const app = express();
 const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -249,6 +250,32 @@ app.post('/api/outfit', async (req, res) => {
     res.status(500).json({ error: err.message, code: 'TRYON_FAILED' });
   }
 });
+
+/* ------------------------------------------------------- saved looks library */
+
+app.use('/looks', express.static(library.IMAGES_DIR, { maxAge: '1h' }));
+
+const wrap = (fn) => async (req, res) => {
+  try {
+    res.json(await fn(req));
+  } catch (err) {
+    log('library:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+app.get('/api/library', wrap(() => library.listAll()));
+app.post('/api/collections', wrap((req) => library.createCollection(req.body?.name)));
+app.patch('/api/collections/:id', wrap((req) => library.renameCollection(req.params.id, req.body?.name)));
+app.delete('/api/collections/:id', wrap((req) => library.deleteCollection(req.params.id)));
+
+app.post('/api/looks', wrap(async (req) => {
+  const look = await library.saveLook(req.body || {});
+  log(`saved look: ${look.title.slice(0, 50)}`);
+  return look;
+}));
+app.patch('/api/looks/:id', wrap((req) => library.moveLook(req.params.id, req.body?.collectionId)));
+app.delete('/api/looks/:id', wrap((req) => library.deleteLook(req.params.id)));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

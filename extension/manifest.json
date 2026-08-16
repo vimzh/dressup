@@ -3,14 +3,16 @@
   "name": "DressUp — Virtual Try-On for Myntra",
   "version": "1.0.0",
   "description": "See yourself in any Myntra product without leaving the search results. Powered by YouCam Apparel VTO.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "unlimitedStorage", "sidePanel"],
   "host_permissions": ["http://localhost:3000/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "action": {
-    "default_popup": "popup.html",
     "default_title": "DressUp",
     "default_icon": {
       "16": "icons/icon16.png",
