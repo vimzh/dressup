@@ -39,7 +39,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn("dark", dmSans.variable, eightiesComeback.variable)}
       lang="en"
     >
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
