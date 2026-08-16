@@ -89,7 +89,17 @@ export function deleteCollection(cid) {
  * Downloads a render and files it. Stored at 1080px — full render quality, since
  * disk is not the constraint here.
  */
-export async function saveLook({ resultUrl, collectionId = null, title = '', site = '', category = '', kind = 'single', pieces = [], productUrl = '' }) {
+export async function saveLook({
+  resultUrl,
+  collectionId = null,
+  title = '',
+  site = '',
+  category = '',
+  kind = 'single',
+  pieces = [],
+  productUrl = '',
+  products = [],
+}) {
   if (!resultUrl) throw new Error('Nothing to save — no render URL.');
 
   const res = await fetch(resultUrl);
@@ -106,9 +116,41 @@ export async function saveLook({ resultUrl, collectionId = null, title = '', sit
     .jpeg({ quality: 90 })
     .toBuffer();
 
+  const lookId = id();
+
+  /*
+   * The point of saving is to come back and buy the thing weeks later, by which
+   * time the retailer's own CDN URL may have rotated. So each piece's product
+   * photo is filed alongside the render, and the listing URL is kept with it.
+   * A thumbnail that fails to download is not worth failing the save over — the
+   * link still works without it.
+   */
+  const savedProducts = [];
+  for (const [i, p] of products.slice(0, 4).entries()) {
+    const entry = { title: String(p?.title || '').slice(0, 160), url: p?.url || '', site: p?.site || site };
+    if (p?.image) {
+      try {
+        const r = await fetch(p.image);
+        if (r.ok) {
+          const thumb = await sharp(Buffer.from(await r.arrayBuffer()))
+            .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
+            .flatten({ background: '#ffffff' })
+            .jpeg({ quality: 82 })
+            .toBuffer();
+          await fs.mkdir(IMAGES, { recursive: true });
+          await fs.writeFile(path.join(IMAGES, `${lookId}-p${i}.jpg`), thumb);
+          entry.thumb = `/looks/${lookId}-p${i}.jpg`;
+        }
+      } catch {
+        /* keep the link, drop the picture */
+      }
+    }
+    savedProducts.push(entry);
+  }
+
   return write(async (db) => {
     const look = {
-      id: id(),
+      id: lookId,
       collectionId,
       title: String(title).slice(0, 160),
       site,
@@ -116,6 +158,7 @@ export async function saveLook({ resultUrl, collectionId = null, title = '', sit
       kind,
       pieces,
       productUrl,
+      products: savedProducts,
       savedAt: new Date().toISOString(),
     };
     await fs.writeFile(path.join(IMAGES, `${look.id}.jpg`), jpeg);
@@ -134,8 +177,14 @@ export function moveLook(lookId, collectionId) {
 
 export function deleteLook(lookId) {
   return write(async (db) => {
+    const look = db.looks.find((l) => l.id === lookId);
     db.looks = db.looks.filter((l) => l.id !== lookId);
+
+    // Sweep the product thumbnails too, or they accumulate as orphans on disk.
     await fs.rm(path.join(IMAGES, `${lookId}.jpg`), { force: true });
+    await Promise.all(
+      (look?.products || []).map((_, i) => fs.rm(path.join(IMAGES, `${lookId}-p${i}.jpg`), { force: true }))
+    );
     return true;
   });
 }

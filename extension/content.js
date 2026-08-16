@@ -87,6 +87,21 @@
   const icon = (name, size = 14) =>
     `<svg class="zdress-i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
+  /**
+   * Retailers hand out root-relative hrefs ("men-tshirts/brand/x/123/buy").
+   * Resolving those against location.href breaks on product pages, whose path
+   * has extra segments, so anything without a leading slash gets one.
+   */
+  function absUrl(href) {
+    if (!href) return '';
+    try {
+      if (/^https?:/i.test(href)) return href;
+      return new URL(href.startsWith('/') ? href : `/${href}`, location.origin).href;
+    } catch {
+      return '';
+    }
+  }
+
   const esc = (s) =>
     String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -258,8 +273,11 @@
         site: site.label,
         category: res.garment?.category || '',
         kind: 'single',
-        productUrl: site.link(card) || '',
+        productUrl: absUrl(site.link(card)),
         garmentImageUrl: imageUrl,
+        // Kept so a saved look stays shoppable weeks later, once the render
+        // itself is just a picture and the listing is what you actually want.
+        products: [{ title: info.title, url: absUrl(site.link(card)), image: imageUrl, site: site.label }],
       };
       renders.set(imageUrl, { resultUrl: res.resultUrl, payload });
       mountRender(card, { resultUrl: res.resultUrl, payload });
@@ -296,7 +314,10 @@
         flashTick(card, `Up to ${MAX_ITEMS} pieces`);
         return;
       }
-      selection = [...selection, { imageUrl: url, title: productInfo(card).title, site: site.label }];
+      selection = [
+        ...selection,
+        { imageUrl: url, title: productInfo(card).title, site: site.label, productUrl: absUrl(site.link(card)) },
+      ];
     }
     await chrome.storage.local.set({ selection });
     refreshCards();

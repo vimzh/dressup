@@ -22,6 +22,7 @@ const ICONS = {
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
   refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
   trash: '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
 };
 
@@ -227,13 +228,19 @@ function showFitResult(res) {
   $('fitNotes').hidden = notes.length === 0;
   $('fitNotes').innerHTML = notes.join('<br>');
 
+  // Only the pieces that actually made it into the render — a conflicting or
+  // rejected pick shouldn't leave a link on the saved look.
+  const appliedTitles = new Set((res.applied || []).map((a) => a.title));
   fitPayload = {
     resultUrl: res.resultUrl,
     title: (res.applied || []).map((a) => a.title).join(' + '),
-    site: 'Multiple',
+    site: [...new Set(lastSelection.map((i) => i.site).filter(Boolean))].join(', ') || 'Multiple',
     category: (res.applied || []).map((a) => a.category).join('+'),
     kind: 'outfit',
     pieces: (res.applied || []).map((a) => a.title),
+    products: lastSelection
+      .filter((i) => appliedTitles.has(i.title))
+      .map((i) => ({ title: i.title, url: i.productUrl || '', image: i.imageUrl, site: i.site })),
   };
 
   $('saveFit').disabled = false;
@@ -309,17 +316,31 @@ function renderLibrary() {
   }
 
   $('looks').innerHTML = visible
-    .map(
-      (l) => `<div class="look" data-id="${esc(l.id)}">
+    .map((l) => {
+      // Links back to the listings, so a look saved weeks ago is still shoppable.
+      const shop = (l.products || []).filter((p) => p.url);
+      const shopRow = shop.length
+        ? `<div class="shop">${shop
+            .map(
+              (p) => `<a class="shop-item" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.title)}">
+                ${p.thumb ? `<img src="${API}${esc(p.thumb)}" alt="" loading="lazy">` : `<span class="shop-ph">${icon('shirt', 12)}</span>`}
+                <span class="shop-go">${icon('external', 10)}</span>
+              </a>`
+            )
+            .join('')}</div>`
+        : '';
+
+      return `<div class="look" data-id="${esc(l.id)}">
         <img src="${API}${esc(l.imageUrl)}" alt="${esc(l.title)}" loading="lazy">
         ${l.kind === 'outfit' ? '<span class="kind">Fit</span>' : ''}
         <button class="del" title="Delete look" aria-label="Delete look">${icon('trash', 13)}</button>
         <div class="cap">
           <b>${esc(l.title || 'Untitled look')}</b>
           <span>${esc(l.site || '')}${l.site && l.category ? ' · ' : ''}${esc((l.category || '').replace('_', ' '))}</span>
+          ${shopRow}
         </div>
-      </div>`
-    )
+      </div>`;
+    })
     .join('');
 }
 

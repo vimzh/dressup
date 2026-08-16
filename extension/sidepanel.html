@@ -227,6 +227,9 @@
   }
   button.ghost:hover { background: var(--muted); }
 
+  button.ghost.danger { border-color: var(--danger); color: var(--danger); }
+  button.ghost.danger:hover { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+
   button.link {
     padding: 0;
     border: 0;
@@ -356,6 +359,25 @@
   .look .cap { padding: 8px 9px 9px; }
   .look .cap b { display: block; font-size: 11.5px; font-weight: 550; line-height: 1.35; }
   .look .cap span { display: block; margin-top: 3px; font-size: 10.5px; color: var(--faint); }
+
+  /* Links back to the listings this look was built from. */
+  .shop { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .shop-item {
+    position: relative;
+    display: block; width: 30px; height: 38px;
+    border: 1px solid var(--line); border-radius: 4px;
+    overflow: hidden; background: var(--muted);
+    transition: border-color 120ms ease;
+  }
+  .shop-item:hover { border-color: var(--ink); }
+  .shop-item img { width: 100%; height: 100%; object-fit: cover; }
+  .shop-ph { display: grid; place-items: center; width: 100%; height: 100%; color: var(--faint); }
+  .shop-go {
+    position: absolute; right: 1px; bottom: 1px;
+    display: grid; place-items: center;
+    width: 13px; height: 13px; border-radius: 3px;
+    background: rgba(9, 9, 11, 0.72); color: #fafafa;
+  }
 
   .look .del {
     position: absolute; top: 6px; right: 6px;
