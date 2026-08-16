@@ -231,6 +231,15 @@ const SITES = [
     mode: 'whole_look',
 
     /*
+     * Pinterest owns the other three corners of a pin — save button top-right,
+     * overflow and share bottom-right, source attribution top-left — so the
+     * control goes bottom-left. And no tick: a pin is a whole look already, not
+     * a piece to combine with others.
+     */
+    corner: 'bottom-left',
+    noTick: true,
+
+    /*
      * Two page types behind one adapter.
      *
      * On a pin page there is no grid, only the closeup — the same fall-back shape

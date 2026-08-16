@@ -18,6 +18,7 @@ import { normalizeImage, toDataUrl } from './image.js';
 import * as library from './library.js';
 import { prepareGarment } from './prep.js';
 import { splitCollage } from './collage.js';
+import { dedupe, gateStats } from './limiter.js';
 
 const app = express();
 const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -34,6 +35,7 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     youcamKey: Boolean(process.env.YOUCAM_API_KEY),
     openaiKey: Boolean(process.env.OPENAI_API_KEY),
+    openai: gateStats(),
   });
 });
 
@@ -206,17 +208,24 @@ app.post('/api/classify', async (req, res) => {
   if (classifyCache.has(garmentImageUrl)) return res.json(classifyCache.get(garmentImageUrl));
 
   try {
-    const r = await fetch(garmentImageUrl);
-    if (!r.ok) throw new Error(`Could not download the product image (HTTP ${r.status}).`);
-    const { buffer, contentType } = await normalizeImage(Buffer.from(await r.arrayBuffer()));
+    /*
+     * Share work that is already running. A finished-results cache does nothing
+     * during the two seconds a call is in flight — which is exactly when a user
+     * double-taps a tick, or a second tab asks about the same product.
+     */
+    const out = await dedupe(`classify:${garmentImageUrl}`, async () => {
+      const r = await fetch(garmentImageUrl);
+      if (!r.ok) throw new Error(`Could not download the product image (HTTP ${r.status}).`);
+      const { buffer, contentType } = await normalizeImage(Buffer.from(await r.arrayBuffer()));
 
-    const garment = await inspectGarment(toDataUrl(buffer, contentType), productTitle);
-    const out = {
-      isApparel: garment.isApparel,
-      category: garment.category,
-      description: garment.description,
-      reason: garment.reason,
-    };
+      const garment = await inspectGarment(toDataUrl(buffer, contentType), productTitle);
+      return {
+        isApparel: garment.isApparel,
+        category: garment.category,
+        description: garment.description,
+        reason: garment.reason,
+      };
+    });
 
     // Bounded: a long browsing session shouldn't grow this without limit.
     if (classifyCache.size > 500) classifyCache.clear();

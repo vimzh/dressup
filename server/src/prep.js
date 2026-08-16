@@ -25,6 +25,7 @@
  */
 
 import OpenAI from 'openai';
+import { runLimited } from './limiter.js';
 import { toFile } from 'openai/uploads';
 import sharp from 'sharp';
 
@@ -96,7 +97,7 @@ const dataUrl = (buf, type = 'image/jpeg') => `data:${type};base64,${buf.toStrin
  * @returns {Promise<{faithful: boolean, issues: string[], reason: string}>}
  */
 async function verifyFaithful(originalBuf, preppedBuf) {
-  const res = await getClient().chat.completions.create({
+  const res = await runLimited(() => getClient().chat.completions.create({
     model: VISION_MODEL,
     reasoning_effort: 'low',
     messages: [
@@ -112,7 +113,7 @@ async function verifyFaithful(originalBuf, preppedBuf) {
       },
     ],
     response_format: { type: 'json_schema', json_schema: { name: 'fidelity', strict: true, schema: VERIFY_SCHEMA } },
-  });
+  }));
   return JSON.parse(res.choices[0].message.content);
 }
 
@@ -148,10 +149,10 @@ export async function prepareGarment(buffer, garment = {}) {
      */
     let res;
     try {
-      res = await getClient().images.edit({ ...base, input_fidelity: 'high' });
+      res = await runLimited(() => getClient().images.edit({ ...base, input_fidelity: 'high' }));
     } catch (err) {
       if (!/input_fidelity/i.test(String(err?.message))) throw err;
-      res = await getClient().images.edit(base);
+      res = await runLimited(() => getClient().images.edit(base));
     }
 
     const b64 = res.data?.[0]?.b64_json;

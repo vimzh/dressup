@@ -11,6 +11,7 @@
  */
 
 import OpenAI from 'openai';
+import { runLimited } from './limiter.js';
 
 // Screening sits on the critical path before a 10-30s render, so it is tuned for
 // latency: a mini model at low reasoning effort with a low-detail image scored 5/5
@@ -112,7 +113,7 @@ Keep "description" to a short noun phrase: colour, material or pattern, then gar
  * @returns {Promise<{isApparel: boolean, category: string|null, confidence: number, reason: string, description: string}>}
  */
 export async function inspectGarment(imageDataUrl, productTitle = '') {
-  const res = await getClient().chat.completions.create({
+  const res = await runLimited(() => getClient().chat.completions.create({
     model: MODEL,
     reasoning_effort: 'low', // classification, not deliberation — keeps this off the critical path
     messages: [
@@ -134,7 +135,7 @@ export async function inspectGarment(imageDataUrl, productTitle = '') {
       type: 'json_schema',
       json_schema: { name: 'garment_screening', strict: true, schema: SCHEMA },
     },
-  });
+  }));
 
   const raw = res.choices[0]?.message?.content;
   if (!raw) throw new Error('Garment screening returned an empty response.');
@@ -204,7 +205,7 @@ is already good.`;
 export async function inspectPerson(buffer, contentType = 'image/jpeg') {
   const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`;
 
-  const res = await getClient().chat.completions.create({
+  const res = await runLimited(() => getClient().chat.completions.create({
     model: MODEL,
     reasoning_effort: 'low',
     messages: [
@@ -221,7 +222,7 @@ export async function inspectPerson(buffer, contentType = 'image/jpeg') {
       type: 'json_schema',
       json_schema: { name: 'person_screening', strict: true, schema: PERSON_SCHEMA },
     },
-  });
+  }));
 
   const raw = res.choices[0]?.message?.content;
   if (!raw) throw new Error('Photo screening returned an empty response.');

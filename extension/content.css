@@ -43,6 +43,14 @@
   transition: opacity 120ms ease, background 120ms ease;
 }
 
+/* Pinterest occupies the other three corners of a pin with its own controls. */
+.zdress-btn-bl {
+  top: auto !important;
+  right: auto !important;
+  bottom: 10px !important;
+  left: 10px !important;
+}
+
 .zdress-card:hover .zdress-btn { opacity: 1; }
 .zdress-btn:hover { background: #09090b !important; }
 

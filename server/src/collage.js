@@ -22,6 +22,7 @@
  */
 
 import OpenAI from 'openai';
+import { runLimited } from './limiter.js';
 import sharp from 'sharp';
 import { inspectGarment, CATEGORIES } from './garment.js';
 import { toDataUrl } from './image.js';
@@ -84,7 +85,7 @@ Return an empty list if nothing wearable is laid out.`;
  * @param {Buffer} buffer the normalised image
  */
 async function locateItems(buffer) {
-  const res = await getClient().chat.completions.create({
+  const res = await runLimited(() => getClient().chat.completions.create({
     model: MODEL,
     reasoning_effort: 'low',
     messages: [
@@ -100,7 +101,7 @@ async function locateItems(buffer) {
       },
     ],
     response_format: { type: 'json_schema', json_schema: { name: 'items', strict: true, schema: SCHEMA } },
-  });
+  }));
   return JSON.parse(res.choices[0].message.content).items || [];
 }
 

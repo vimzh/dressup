@@ -413,20 +413,23 @@
     // swallow the click so we don't navigate to the product page.
     if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
 
-    const tick = document.createElement('button');
-    tick.className = 'zdress-tick';
-    tick.type = 'button';
-    tick.setAttribute('aria-pressed', 'false');
-    tick.title = 'Add to fit';
-    tick.innerHTML = icon('check', 13);
-    tick.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleSelect(card);
-    });
+    if (!site.noTick) {
+      const tick = document.createElement('button');
+      tick.className = 'zdress-tick';
+      tick.type = 'button';
+      tick.setAttribute('aria-pressed', 'false');
+      tick.title = 'Add to fit';
+      tick.innerHTML = icon('check', 13);
+      tick.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSelect(card);
+      });
+      card.appendChild(tick);
+    }
 
     const btn = document.createElement('button');
-    btn.className = 'zdress-btn';
+    btn.className = `zdress-btn${site.corner === 'bottom-left' ? ' zdress-btn-bl' : ''}`;
     btn.type = 'button';
     btn.innerHTML = `${icon('shirt', 13)}<span>Try this look</span>`;
     btn.addEventListener('click', (e) => {
@@ -435,7 +438,6 @@
       handleClick(card);
     });
 
-    card.appendChild(tick);
     card.appendChild(btn);
   }
 
