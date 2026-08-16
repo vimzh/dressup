@@ -1,14 +1,21 @@
 /*
- * Injected into myntra.com. Every rule is namespaced under .zdress-* and uses
- * !important on the load-bearing properties, because Myntra's own stylesheet is
- * broad and would otherwise win on specificity.
+ * Injected into retailer pages. Every rule is namespaced under .zdress-* and
+ * uses !important on load-bearing properties, because these sites ship broad
+ * stylesheets that would otherwise win on specificity.
+ *
+ * Monochrome throughout — the surrounding page supplies the colour, so the
+ * controls stay neutral and read as tooling rather than as store chrome.
  */
+
+.zdress-i { flex: none !important; display: block !important; }
+
+/* ------------------------------------------------------------ card controls */
 
 .zdress-btn {
   position: absolute !important;
   top: 8px !important;
   right: 8px !important;
-  z-index: 20 !important;
+  z-index: 24 !important;
 
   display: inline-flex !important;
   align-items: center !important;
@@ -17,61 +24,39 @@
   margin: 0 !important;
   padding: 7px 11px !important;
   border: 0 !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
 
-  font-family: inherit !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
   font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.01em !important;
+  font-weight: 600 !important;
   line-height: 1 !important;
   white-space: nowrap !important;
 
-  color: #fff !important;
-  background: rgba(20, 18, 28, 0.82) !important;
-  -webkit-backdrop-filter: saturate(1.4) blur(8px) !important;
-  backdrop-filter: saturate(1.4) blur(8px) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 16px -6px rgba(0, 0, 0, 0.4) !important;
+  color: #fafafa !important;
+  background: rgba(9, 9, 11, 0.84) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24) !important;
 
   cursor: pointer !important;
-  opacity: 0.9;
-  transform: translateY(0);
-  transition: opacity 0.16s ease, transform 0.16s ease, background 0.16s ease;
+  opacity: 0.92;
+  transition: opacity 120ms ease, background 120ms ease;
 }
 
-/* Full presence only when the shopper is actually considering this card. */
-.zdress-card:hover .zdress-btn {
-  opacity: 1;
-  background: rgba(20, 18, 28, 0.94) !important;
+.zdress-card:hover .zdress-btn { opacity: 1; }
+.zdress-btn:hover { background: #09090b !important; }
+
+.zdress-btn[disabled] {
+  opacity: 0.45 !important;
+  cursor: default !important;
+  pointer-events: none !important;
 }
 
-.zdress-btn:hover {
-  transform: translateY(-1px);
-  background: #0a0a0a !important;
-}
-
-.zdress-btn:active {
-  transform: translateY(0);
-}
-
-.zdress-btn:focus-visible {
-  outline: 2px solid #0a0a0a !important;
-  outline-offset: 2px !important;
-}
-
-.zdress-btn-icon {
-  font-size: 12px !important;
-  line-height: 1 !important;
-}
-
-/* ------------------------------------------------------------ outfit tick */
-
-/* Sits left of the try-on button: one click previews a single piece, the other
-   adds it to a combination. */
 .zdress-tick {
   position: absolute !important;
   top: 8px !important;
   left: 8px !important;
-  z-index: 20 !important;
+  z-index: 24 !important;
 
   display: inline-flex !important;
   align-items: center !important;
@@ -81,32 +66,33 @@
   padding: 0 !important;
   margin: 0 !important;
 
-  border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+  border: 1.5px solid rgba(250, 250, 250, 0.8) !important;
   border-radius: 50% !important;
-  background: rgba(20, 18, 28, 0.62) !important;
+  background: rgba(9, 9, 11, 0.6) !important;
   -webkit-backdrop-filter: blur(6px) !important;
   backdrop-filter: blur(6px) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
 
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: rgba(250, 250, 250, 0.92) !important;
   cursor: pointer !important;
-  opacity: 0.75;
-  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  opacity: 0.78;
+  transition: opacity 120ms ease, background 120ms ease, transform 120ms ease;
 }
 
 .zdress-card:hover .zdress-tick { opacity: 1; }
-.zdress-tick:hover { transform: scale(1.08); background: rgba(20, 18, 28, 0.85) !important; }
+.zdress-tick:hover { transform: scale(1.06); background: rgba(9, 9, 11, 0.86) !important; }
 
 .zdress-tick.is-on {
   opacity: 1 !important;
-  background: #0a0a0a !important;
-  border-color: #fff !important;
-  color: #fff !important;
+  background: #fafafa !important;
+  border-color: #fafafa !important;
+  color: #09090b !important;
 }
 
 .zdress-tick.is-blocked {
-  background: #b4232a !important;
-  animation: zdress-shake 0.35s ease;
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+  color: #fafafa !important;
+  animation: zdress-shake 350ms ease;
 }
 
 @keyframes zdress-shake {
@@ -115,28 +101,105 @@
   75%      { transform: translateX(3px); }
 }
 
-/* A selected card stays visibly marked while you browse on. */
 .zdress-selected {
-  outline: 2px solid #0a0a0a !important;
+  outline: 2px solid #09090b !important;
   outline-offset: -2px !important;
   border-radius: 6px !important;
 }
 
+/* ------------------------------------------------------- the render itself */
+
+/*
+ * Sits over the retailer's product photo rather than replacing its src: these
+ * grids are React-rendered and would overwrite the src on their next update.
+ */
+.zdress-render {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 20 !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  animation: zdress-fade 180ms ease-out;
+}
+
+.zdress-render > img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+@keyframes zdress-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.zdress-onyou {
+  position: absolute !important;
+  left: 8px !important;
+  bottom: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 8px !important;
+  border-radius: 5px !important;
+  background: rgba(9, 9, 11, 0.82) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  backdrop-filter: blur(6px) !important;
+  color: #fafafa !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+  pointer-events: none !important;
+}
+
+.zdress-render-actions {
+  position: absolute !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  display: flex !important;
+  gap: 5px !important;
+}
+
+.zdress-act {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 26px !important;
+  height: 26px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: rgba(9, 9, 11, 0.82) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  backdrop-filter: blur(6px) !important;
+  color: #fafafa !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+
+.zdress-act:hover:not([disabled]) { background: #09090b !important; }
+.zdress-act[disabled] { opacity: 0.55 !important; cursor: default !important; }
+.zdress-act.is-done { background: #15803d !important; opacity: 1 !important; }
+
 /* ------------------------------------------------------- rendering shimmer */
 
 /*
- * Sits over the card's image while a render is in flight. The sweep is a single
- * translated gradient rather than an animated background-position, so it runs on
- * the compositor and doesn't cost layout on a 50-card grid.
+ * A single translated sweep rather than an animated background-position, so it
+ * runs on the compositor and costs no layout on a 50-card grid.
  */
 .zdress-shimmer {
   position: absolute !important;
   inset: 0 !important;
-  z-index: 15 !important;
+  z-index: 22 !important;
   overflow: hidden !important;
   pointer-events: none !important;
   background: rgba(9, 9, 11, 0.14) !important;
-  animation: zdress-veil 0.28s ease-out;
+  animation: zdress-fade 240ms ease-out;
 }
 
 .zdress-shimmer::after {
@@ -149,9 +212,9 @@
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.35) 35%,
-    rgba(255, 255, 255, 0.92) 50%,
-    rgba(255, 255, 255, 0.35) 65%,
+    rgba(255, 255, 255, 0.3) 35%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.3) 65%,
     rgba(255, 255, 255, 0) 100%
   ) !important;
   transform: skewX(-14deg);
@@ -164,19 +227,8 @@
   to   { transform: translateX(360%) skewX(-14deg); }
 }
 
-@keyframes zdress-veil {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+.zdress-busy img { filter: saturate(0.6) !important; transition: filter 240ms ease !important; }
 
-/* The photo itself recedes so the shimmer clearly reads as "this one is working". */
-.zdress-busy img {
-  filter: saturate(0.65) contrast(0.96) !important;
-  transition: filter 0.3s ease !important;
-}
-
-/* Centred rather than bottom-anchored: Myntra puts its ratings badge in the
-   bottom-left of the image, and the two collided. */
 .zdress-shimmer-chip {
   position: absolute !important;
   left: 50% !important;
@@ -186,15 +238,14 @@
   align-items: center !important;
   gap: 6px !important;
   padding: 5px 10px !important;
-  border-radius: 999px !important;
-  background: rgba(20, 18, 28, 0.86) !important;
+  border-radius: 6px !important;
+  background: rgba(9, 9, 11, 0.86) !important;
   -webkit-backdrop-filter: blur(6px) !important;
   backdrop-filter: blur(6px) !important;
-  color: #fff !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  color: #fafafa !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif !important;
   font-size: 10.5px !important;
-  font-weight: 650 !important;
-  letter-spacing: 0.01em !important;
+  font-weight: 600 !important;
   line-height: 1 !important;
   white-space: nowrap !important;
 }
@@ -212,276 +263,86 @@
   50%      { opacity: 1;    transform: scale(1.15); }
 }
 
-.zdress-btn[disabled] {
-  opacity: 0.45 !important;
-  cursor: default !important;
-  pointer-events: none !important;
-}
+/* ------------------------------------------------------------------- toast */
 
-@media (prefers-reduced-motion: reduce) {
-  .zdress-shimmer::after { animation: none; opacity: 0.25; }
-  .zdress-shimmer-dot { animation: none; opacity: 1; }
-}
-
-/* ------------------------------------------------------------------ overlay */
-
-.zdress-overlay {
+/*
+ * Errors used to open a modal, which is far too heavy for "you haven't added a
+ * photo yet". They surface here instead and the grid stays put.
+ */
+.zdress-toast {
   position: fixed !important;
-  inset: 0 !important;
+  right: 20px !important;
+  bottom: 20px !important;
   z-index: 2147483600 !important;
-  display: none !important;
+
+  display: none;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  max-width: 340px !important;
+  padding: 12px 12px 12px 14px !important;
+
+  border-radius: 8px !important;
+  background: #09090b !important;
+  color: #fafafa !important;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45) !important;
+
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  animation: zdress-rise 180ms ease-out;
+}
+
+.zdress-toast.is-open { display: flex !important; }
+
+.zdress-toast-body { flex: 1 !important; min-width: 0 !important; }
+
+.zdress-toast p {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+  color: #fafafa !important;
+}
+
+.zdress-toast-hint {
+  margin-top: 4px !important;
+  font-size: 11.5px !important;
+  color: #a1a1aa !important;
+}
+
+.zdress-toast-hint code {
+  padding: 1px 4px !important;
+  border-radius: 4px !important;
+  background: #27272a !important;
+  font-size: 11px !important;
+}
+
+.zdress-toast-x {
+  flex: none !important;
+  display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 24px !important;
-  background: rgba(12, 10, 18, 0.72) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  backdrop-filter: blur(4px) !important;
+  width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: #a1a1aa !important;
+  cursor: pointer !important;
 }
 
-.zdress-overlay.is-open {
-  display: flex !important;
-}
-
-.zdress-modal {
-  position: relative !important;
-  width: min(460px, 92vw) !important;
-  max-height: 88vh !important;
-  overflow: auto !important;
-  border-radius: 16px !important;
-  background: #fff !important;
-  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.5) !important;
-  animation: zdress-rise 0.2s ease-out;
-}
+.zdress-toast-x:hover { background: #27272a !important; color: #fafafa !important; }
 
 @keyframes zdress-rise {
-  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .zdress-modal { animation: none; }
-  .zdress-btn { transition: none; }
-}
-
-.zdress-close {
-  position: absolute !important;
-  top: 10px !important;
-  right: 12px !important;
-  z-index: 2 !important;
-  width: 30px !important;
-  height: 30px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 999px !important;
-  background: rgba(255, 255, 255, 0.88) !important;
-  color: #3a3540 !important;
-  font-size: 22px !important;
-  line-height: 1 !important;
-  cursor: pointer !important;
-}
-
-.zdress-close:hover {
-  background: #efedf2 !important;
-}
-
-.zdress-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  color: #1b1820 !important;
-}
-
-/* ------------------------------------------------------------------ states */
-
-.zdress-loading {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 14px !important;
-  padding: 40px 28px !important;
-  text-align: center !important;
-}
-
-.zdress-thumb {
-  width: 84px !important;
-  height: 108px !important;
-  overflow: hidden !important;
-  border-radius: 8px !important;
-  background: #f4f2f7 !important;
-}
-
-.zdress-thumb img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  display: block !important;
-}
-
-.zdress-spinner {
-  width: 26px !important;
-  height: 26px !important;
-  border: 2.5px solid #e7e3ef !important;
-  border-top-color: #0a0a0a !important;
-  border-radius: 50% !important;
-  animation: zdress-spin 0.7s linear infinite;
-}
-
-@keyframes zdress-spin {
-  to { transform: rotate(360deg); }
-}
-
-.zdress-stage {
-  margin: 0 !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-}
-
-.zdress-meta {
-  margin: 0 !important;
-  font-size: 12px !important;
-  color: #6b6577 !important;
-}
-
-.zdress-elapsed {
-  font-variant-numeric: tabular-nums !important;
-}
-
-.zdress-result-img {
-  display: block !important;
-  width: 100% !important;
-  border-radius: 16px 16px 0 0 !important;
-}
-
-.zdress-caption {
-  padding: 14px 18px 18px !important;
-  font-size: 13px !important;
-  color: #4b4553 !important;
-}
-
-.zdress-caption strong {
-  color: #1b1820 !important;
-}
-
-.zdress-desc {
-  display: block !important;
-  margin-top: 3px !important;
-  font-size: 12px !important;
-  color: #0a0a0a !important;
-}
-
-/* Thumbnails of the pieces being composed, shown while an outfit renders. */
-.zdress-strip {
-  display: flex !important;
-  gap: 6px !important;
-}
-
-.zdress-strip img {
-  width: 52px !important;
-  height: 68px !important;
-  object-fit: cover !important;
-  border-radius: 7px !important;
-  border: 1px solid #ebe8f0 !important;
-  background: #f4f2f7 !important;
-}
-
-.zdress-applied {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 5px !important;
-}
-
-.zdress-pill {
-  padding: 3px 8px !important;
-  border-radius: 999px !important;
-  border: 1px solid #e4e4e7 !important;
-  background: #fafafa !important;
-  color: #3f3f46 !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-}
-
-/* Save-to-collection control under a finished render. */
-.zdress-save {
-  display: flex !important;
-  gap: 7px !important;
-  align-items: center !important;
-  margin-top: 12px !important;
-  padding-top: 12px !important;
-  border-top: 1px solid #efedf3 !important;
-}
-
-.zdress-select {
-  flex: 1 !important;
-  min-width: 0 !important;
-  padding: 7px 9px !important;
-  border: 1px solid #e4e0ec !important;
-  border-radius: 8px !important;
-  background: #fff !important;
-  color: #1b1820 !important;
-  font-family: inherit !important;
-  font-size: 12px !important;
-}
-
-.zdress-save-btn {
-  flex: none !important;
-  padding: 7px 14px !important;
-  border: 0 !important;
-  border-radius: 8px !important;
-  background: #0a0a0a !important;
-  color: #fff !important;
-  font-family: inherit !important;
-  font-size: 12px !important;
-  font-weight: 650 !important;
-  cursor: pointer !important;
-}
-
-.zdress-save-btn:hover:not(:disabled) { background: #262626 !important; }
-.zdress-save-btn:disabled { opacity: 0.6 !important; cursor: default !important; }
-
-.zdress-save-err {
-  flex-basis: 100% !important;
-  margin: 6px 0 0 !important;
-  font-size: 11px !important;
-  color: #b4232a !important;
-}
-
-.zdress-notes {
-  margin-top: 9px !important;
-  font-size: 11px !important;
-  line-height: 1.5 !important;
-  color: #837d90 !important;
-}
-
-.zdress-error {
-  padding: 40px 28px !important;
-  text-align: center !important;
-}
-
-.zdress-error-icon {
-  font-size: 30px !important;
-  margin-bottom: 8px !important;
-}
-
-.zdress-error h3 {
-  margin: 0 0 6px !important;
-  font-size: 16px !important;
-  font-weight: 650 !important;
-}
-
-.zdress-error p {
-  margin: 0 !important;
-  font-size: 13px !important;
-  line-height: 1.5 !important;
-  color: #5c5666 !important;
-}
-
-.zdress-hint {
-  margin-top: 10px !important;
-  font-size: 12px !important;
-  color: #6b6577 !important;
-}
-
-.zdress-hint code {
-  padding: 1px 5px !important;
-  border-radius: 4px !important;
-  background: #f2f0f6 !important;
-  font-size: 11px !important;
+  .zdress-shimmer::after,
+  .zdress-shimmer-dot,
+  .zdress-render,
+  .zdress-toast { animation: none !important; }
+  .zdress-btn,
+  .zdress-tick,
+  .zdress-act { transition: none !important; }
 }

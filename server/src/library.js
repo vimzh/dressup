@@ -31,14 +31,17 @@ async function read() {
 // would otherwise interleave read-modify-write and lose entries.
 let queue = Promise.resolve();
 function write(mutate) {
-  queue = queue.then(async () => {
+  const run = queue.then(async () => {
     await fs.mkdir(IMAGES, { recursive: true });
     const db = await read();
     const result = await mutate(db);
     await fs.writeFile(DB, JSON.stringify(db, null, 1));
     return result;
   });
-  return queue;
+  // The chain must keep moving even when a write fails. Advancing `queue` on the
+  // settled-and-swallowed promise means one bad save can't wedge every later one.
+  queue = run.catch(() => {});
+  return run;
 }
 
 const id = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;

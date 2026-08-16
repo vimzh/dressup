@@ -255,7 +255,10 @@ const SITES = [
     image: (card) => {
       const isIcon = (u) => !u || /\.svg($|\?)/i.test(u) || /general\/components\/img|images\/icons/i.test(u);
 
-      const el = [...card.querySelectorAll('img')].find((i) => !isIcon(i.src));
+      // Skip our own mounted render, which is also a non-icon <img> in this card.
+      const el = [...card.querySelectorAll('img')].find(
+        (i) => !isIcon(i.src) && !i.closest('.zdress-render')
+      );
       if (el) return el;
 
       for (const node of card.querySelectorAll('.Image__base, .PlpImageGallery__imagebox, [style*="background-image"]')) {

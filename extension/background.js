@@ -81,16 +81,6 @@ async function saveLook(payload) {
   return { ok: true, look: data };
 }
 
-async function listCollections() {
-  try {
-    const res = await fetch(`${API_BASE}/api/library`);
-    const data = await res.json();
-    return { ok: true, collections: data.collections || [] };
-  } catch {
-    return { ok: false, collections: [] };
-  }
-}
-
 // Clicking the toolbar icon opens the side panel rather than a popup.
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -99,10 +89,6 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === 'SAVE_LOOK') {
     saveLook(msg.payload).then(sendResponse);
-    return true;
-  }
-  if (msg?.type === 'LIST_COLLECTIONS') {
-    listCollections().then(sendResponse);
     return true;
   }
   if (msg?.type === 'TRY_ON') {

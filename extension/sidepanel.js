@@ -10,7 +10,6 @@
  */
 
 const API = 'http://localhost:3000';
-const SUPPORTED = /myntra\.com|ajio\.com|nykaafashion\.com|flipkart\.com|tatacliq\.com|amazon\.(in|com)|snitch\.com|bewakoof\.com|maxfashion\.in|libas\.in/;
 
 const $ = (id) => document.getElementById(id);
 
@@ -141,7 +140,10 @@ $('file').addEventListener('change', async () => {
 
 /* ------------------------------------------------------------ current fit */
 
+let lastSelection = [];
+
 function renderFit(selection = []) {
+  lastSelection = selection;
   const has = selection.length > 0;
   $('fitEmpty').hidden = has;
   $('fitBody').hidden = !has;
@@ -158,19 +160,102 @@ chrome.storage.onChanged.addListener((c, area) => {
 
 $('clearFit').addEventListener('click', () => chrome.storage.local.set({ selection: [] }));
 
-// The render is shown as an overlay on the shopping page, not in here — it can
-// take a minute, and the panel is too narrow to show a full-length figure well.
+/*
+ * The fit is rendered here rather than on the page. A side panel keeps focus
+ * when the user clicks elsewhere — unlike a popup, which was the original
+ * reason this lived in a page overlay.
+ */
+let fitPayload = null;
+
+function setFitBusy(busy, label = '') {
+  $('tryfit').disabled = busy;
+  $('tryfitLabel').textContent = busy ? label : `Try this fit (${lastSelection.length})`;
+}
+
 $('tryfit').addEventListener('click', async () => {
-  const { personFileId } = await chrome.storage.local.get('personFileId');
-  if (!personFileId) return setStatus($('fitStatus'), 'Add your photo first.', 'err');
+  const { personFileId, selection: items = [] } = await chrome.storage.local.get(['personFileId', 'selection']);
+  if (!personFileId) return setStatus($('fitStatus'), 'Add your photo first — open settings above.', 'err');
+  if (!items.length) return setStatus($('fitStatus'), 'Tick a few items first.', 'err');
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.url || !SUPPORTED.test(tab.url)) {
-    return setStatus($('fitStatus'), 'Open a supported shopping site to see the result.', 'err');
+  $('fitResult').hidden = true;
+  setStatus($('fitStatus'), '', '');
+  setFitBusy(true, 'Rendering…');
+
+  // Each piece is a separate render, so keep the wait honest.
+  const started = Date.now();
+  const timer = setInterval(() => {
+    const secs = Math.floor((Date.now() - started) / 1000);
+    $('tryfitLabel').textContent = `Rendering… ${secs}s`;
+  }, 500);
+
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'TRY_OUTFIT', items });
+    if (!res?.ok) {
+      setStatus($('fitStatus'), res?.error || 'Fit render failed.', 'err');
+      return;
+    }
+    showFitResult(res);
+  } finally {
+    clearInterval(timer);
+    setFitBusy(false);
   }
+});
 
-  await chrome.tabs.sendMessage(tab.id, { type: 'RUN_OUTFIT' });
-  setStatus($('fitStatus'), 'Rendering on the page…', '');
+/* Picked up when a retailer's CSP blocked the render from showing on the page. */
+chrome.storage.local.get('lastRender').then(({ lastRender }) => {
+  if (!lastRender) return;
+  showFitResult({
+    resultUrl: lastRender.resultUrl,
+    applied: [{ title: lastRender.payload.title, description: lastRender.payload.title, category: lastRender.payload.category }],
+  });
+  fitPayload = { ...lastRender.payload, resultUrl: lastRender.resultUrl };
+  setStatus($('fitStatus'), 'Rendered — that site blocked it from showing in the grid.', '');
+  chrome.storage.local.remove('lastRender');
+});
+
+function showFitResult(res) {
+  $('fitImage').src = res.resultUrl;
+  $('fitPills').innerHTML = (res.applied || [])
+    .map((a) => `<span class="pill">${esc(a.description || a.title)}</span>`)
+    .join('');
+
+  const notes = [
+    ...(res.skipped || []).map((x) => `Skipped ${esc(x.title)} — ${esc(x.why)}.`),
+    ...(res.rejected || []).map((x) => `Couldn’t use ${esc(x.title)} — ${esc(x.reason)}`),
+  ];
+  $('fitNotes').hidden = notes.length === 0;
+  $('fitNotes').innerHTML = notes.join('<br>');
+
+  fitPayload = {
+    resultUrl: res.resultUrl,
+    title: (res.applied || []).map((a) => a.title).join(' + '),
+    site: 'Multiple',
+    category: (res.applied || []).map((a) => a.category).join('+'),
+    kind: 'outfit',
+    pieces: (res.applied || []).map((a) => a.title),
+  };
+
+  $('saveFit').disabled = false;
+  $('saveFitLabel').textContent = 'Save look';
+  $('fitResult').hidden = false;
+  setStatus($('fitStatus'), '', '');
+}
+
+$('dismissFit').addEventListener('click', () => {
+  $('fitResult').hidden = true;
+  fitPayload = null;
+});
+
+$('saveFit').addEventListener('click', async () => {
+  if (!fitPayload) return;
+  $('saveFit').disabled = true;
+  const res = await chrome.runtime.sendMessage({ type: 'SAVE_LOOK', payload: fitPayload });
+  if (res?.ok) {
+    $('saveFitLabel').textContent = 'Saved';
+  } else {
+    $('saveFit').disabled = false;
+    setStatus($('fitStatus'), res?.error || 'Could not save that look.', 'err');
+  }
 });
 
 /* ---------------------------------------------------------------- library */

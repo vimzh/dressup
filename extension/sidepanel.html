@@ -23,6 +23,11 @@
     --danger: #b91c1c;
     --ok: #15803d;
     --warn: #a16207;
+    /* Side panels are user-resizable and can be dragged very wide. Content is
+       capped and centred so it never stretches into an unreadable band; the
+       padding trick keeps borders and backgrounds full-bleed. */
+    --maxw: 520px;
+    --pad: 16px;
     --r-sm: 6px;
     --r-md: 8px;
     --r-lg: 12px;
@@ -72,12 +77,15 @@
 
   /* ---------------------------------------------------------------- header */
 
+  /* Centres content within --maxw while letting the element itself span full width. */
+  .bleed { padding-inline: max(var(--pad), calc((100% - var(--maxw)) / 2)); }
+
   header {
     flex: none;
     display: flex;
     align-items: center;
     gap: 9px;
-    padding: 14px 16px 12px;
+    padding-block: 14px 12px;
   }
 
   header img { width: 20px; height: 20px; border-radius: var(--r-sm); }
@@ -118,7 +126,7 @@
   /* --------------------------------------------------------- tabs (shadcn) */
 
   /* Muted track, active trigger lifts onto the surface colour. */
-  .tabs-wrap { flex: none; padding: 0 16px 12px; }
+  .tabs-wrap { flex: none; padding-block: 0 12px; }
 
   .tabs {
     display: grid;
@@ -169,7 +177,7 @@
 
   /* ------------------------------------------------------------------ body */
 
-  main { flex: 1; overflow-y: auto; padding: 4px 16px 20px; }
+  main { flex: 1; overflow-y: auto; padding-block: 4px 20px; }
 
   section + section { margin-top: 26px; }
 
@@ -316,6 +324,26 @@
   }
   .chip .n { opacity: 0.6; font-variant-numeric: tabular-nums; }
 
+  .result {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--raised);
+    margin-top: 14px;
+  }
+  .result img { display: block; width: 100%; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+  .pill {
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  .notes { margin: 9px 0 0; font-size: 11px; line-height: 1.5; color: var(--faint); }
+
   .looks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
   .look {
@@ -355,12 +383,26 @@
 
   footer {
     flex: none;
-    padding: 11px 16px;
+    padding-block: 11px;
     border-top: 1px solid var(--line);
     font-size: 11px;
     line-height: 1.45;
     color: var(--faint);
     text-wrap: pretty;
+  }
+
+  /* Narrow panel: single-column library, tighter gutters, no wasted space. */
+  @media (max-width: 340px) {
+    :root { --pad: 11px; }
+    .looks { grid-template-columns: 1fr; }
+    .photo { max-height: 168px; }
+    .tab { font-size: 12px; padding-inline: 6px; }
+    .empty { padding: 20px 12px; }
+  }
+
+  /* Wide panel: the cap has kicked in, so the library can use the room. */
+  @media (min-width: 620px) {
+    .looks { grid-template-columns: repeat(3, 1fr); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -369,7 +411,7 @@
 </style>
 </head>
 <body>
-  <header>
+  <header class="bleed">
     <img src="icons/icon48.png" alt="">
     <h1>Zdress</h1>
     <button class="icon-btn" id="btnSettings" aria-label="Photo &amp; settings" title="Photo &amp; settings">
@@ -378,7 +420,7 @@
     </button>
   </header>
 
-  <div class="tabs-wrap">
+  <div class="tabs-wrap bleed">
     <div class="tabs" role="tablist">
       <button class="tab" id="tabTry" role="tab" aria-selected="true" aria-controls="paneTry">
         Try on<span class="badge" id="selCount" hidden></span>
@@ -389,7 +431,7 @@
     </div>
   </div>
 
-  <main>
+  <main class="bleed">
     <!-- ------------------------------------------------------- try-on pane -->
     <div id="paneTry" role="tabpanel" aria-labelledby="tabTry">
       <div class="setup" id="needPhoto" hidden>
@@ -414,6 +456,23 @@
           </div>
         </div>
         <p class="status" id="fitStatus"></p>
+
+        <!-- Rendered outfit. A side panel keeps focus, unlike a popup, so the
+             result can live here instead of on the page. -->
+        <div id="fitResult" hidden>
+          <div class="result">
+            <img id="fitImage" alt="You wearing the selected fit">
+          </div>
+          <div class="pills" id="fitPills"></div>
+          <p class="notes" id="fitNotes" hidden></p>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost" id="saveFit" style="flex:1;justify-content:center">
+              <svg class="i" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <span id="saveFitLabel">Save look</span>
+            </button>
+            <button class="ghost" id="dismissFit">Dismiss</button>
+          </div>
+        </div>
       </section>
     </div>
 
@@ -462,7 +521,7 @@
     </div>
   </main>
 
-  <footer id="foot">Renders are stored by your local Zdress server.</footer>
+  <footer id="foot" class="bleed">Renders are stored by your local Zdress server.</footer>
 
   <script src="sidepanel.js"></script>
 </body>

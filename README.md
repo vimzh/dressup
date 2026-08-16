@@ -31,9 +31,16 @@ the fifth item is one click, not another round of setup.
 
 ## Building a whole fit
 
-Each card carries two controls: **"Try this look"** on the right previews that single piece, and
-a **tick** on the left adds it to an outfit. Tick a top here, trousers there, open the extension
-and hit **Try this fit** — you get one image of yourself wearing the combination.
+Each card carries two controls: **"Try this look"** on the right, and a **tick** on the left.
+
+Clicking "Try this look" **replaces that card's product photo with the render, in place**. No
+modal, no context switch — the grid becomes a grid of you, and you keep scrolling. Each swapped
+card gets a revert button to bring the product photo back, and a save button.
+
+The tick adds a piece to an outfit. Tick a top here, trousers there, then hit **Try this fit**
+in the side panel — the combined render appears **in the panel**, which stays open while you
+keep browsing. (A side panel keeps focus when you click the page; a popup would not, which is
+why this originally lived in a page overlay.)
 
 The selection lives in extension storage rather than on the page, so an outfit can mix retailers:
 a tee from Flipkart with trousers from Myntra composes into a single render.
@@ -56,9 +63,13 @@ The cost is time — each piece is its own render, so a three-piece fit takes ro
 
 ## Saving looks
 
-Every finished render gets a **Save look** control with a collection picker. Saved looks
-collect in a full-height **side panel** (Chrome's Side Panel API, not a popup), split into two
-tabs: *Try on* for your photo and the current fit, *Saved* for the library.
+Renders carry a **save** button — on the swapped card for a single piece, under the result for
+a fit. Saved looks collect in a full-height **side panel** (Chrome's Side Panel API, not a
+popup), split into two tabs: *Try on* for the current fit, *Saved* for the library. Your photo
+lives behind the header avatar in settings, since it is set once and rarely changed.
+
+The panel is user-resizable, so its content is capped at 520px and centred rather than
+stretching into an unreadable band; below 340px the library drops to a single column.
 
 Because the selection and the library are both extension-level rather than page-level, a
 single collection can hold looks from Myntra, Flipkart and AJIO side by side — the point of
@@ -86,7 +97,7 @@ Myntra grid          Extension                 Local backend            APIs
                                                  ├─▶ YouCam upload garment
                                                  ├─▶ YouCam create task
                                                  └─▶ poll to completion
-                     result overlay ◀────────────┘
+                     card render swap ◀──────────┘
 ```
 
 ### Why there's a backend

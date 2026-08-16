@@ -277,6 +277,19 @@ app.post('/api/looks', wrap(async (req) => {
 app.patch('/api/looks/:id', wrap((req) => library.moveLook(req.params.id, req.body?.collectionId)));
 app.delete('/api/looks/:id', wrap((req) => library.deleteLook(req.params.id)));
 
+/*
+ * Without this, an oversized upload is handled by Express's default handler,
+ * which replies with an HTML error page — the panel then fails parsing it as
+ * JSON and reports something unrelated.
+ */
+app.use((err, _req, res, _next) => {
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'That photo is over 10MB. Try a smaller one.', code: 'TOO_LARGE' });
+  }
+  log('unhandled:', err?.message || err);
+  res.status(500).json({ error: err?.message || 'Something went wrong.', code: 'SERVER_ERROR' });
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   log(`Zdress server on http://localhost:${port}`);
