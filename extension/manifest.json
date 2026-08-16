@@ -3,8 +3,14 @@
   "name": "Zdress",
   "version": "1.0.0",
   "description": "See yourself in anything you find while shopping, without leaving the page. Powered by YouCam Apparel VTO.",
-  "permissions": ["storage", "unlimitedStorage", "sidePanel"],
-  "host_permissions": ["http://localhost:3000/*"],
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -28,22 +34,28 @@
   "content_scripts": [
     {
       "matches": [
-        "*://www.myntra.com/*",
-        "*://www.ajio.com/*",
-        "*://www.nykaafashion.com/*",
-        "*://www.flipkart.com/*",
-        "*://www.tatacliq.com/*",
-        "*://www.amazon.in/*",
-        "*://www.amazon.com/*",
-        "*://www.snitch.com/*",
-        "*://www.bewakoof.com/*",
-        "*://www.maxfashion.in/*",
-        "*://www.libas.in/*",
+        "*://*.myntra.com/*",
+        "*://*.ajio.com/*",
+        "*://*.nykaafashion.com/*",
+        "*://*.flipkart.com/*",
+        "*://*.tatacliq.com/*",
+        "*://*.amazon.in/*",
+        "*://*.amazon.com/*",
+        "*://*.snitch.com/*",
+        "*://*.snitch.co.in/*",
+        "*://*.bewakoof.com/*",
+        "*://*.maxfashion.in/*",
+        "*://*.libas.in/*",
         "*://*.pinterest.com/*",
         "*://*.pinterest.co.uk/*"
       ],
-      "js": ["sites.js", "content.js"],
-      "css": ["content.css"],
+      "js": [
+        "sites.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ]

@@ -102,7 +102,12 @@ async function locateItems(buffer) {
     ],
     response_format: { type: 'json_schema', json_schema: { name: 'items', strict: true, schema: SCHEMA } },
   }));
-  return JSON.parse(res.choices[0].message.content).items || [];
+  // Same guard as the other screening calls: a refused or empty completion has
+  // no content, and reaching into it blindly throws a TypeError instead of a
+  // message anyone can act on.
+  const raw = res.choices[0]?.message?.content;
+  if (!raw) throw new Error('Moodboard analysis returned an empty response.');
+  return JSON.parse(raw).items || [];
 }
 
 /** Cuts a normalised box out of the image, with a small margin, clamped to bounds. */

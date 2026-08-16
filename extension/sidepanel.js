@@ -351,6 +351,28 @@ $('saveFit').addEventListener('click', async () => {
 
 /* ---------------------------------------------------------------- library */
 
+/**
+ * Every library mutation went straight to fetch() with no error handling, so a
+ * failed delete or rename did nothing at all and said nothing — the click just
+ * appeared to be ignored. This reports the failure and leaves the view
+ * consistent by reloading either way.
+ */
+async function api(path, options, failureMessage) {
+  try {
+    const res = await fetch(`${API}${path}`, options);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    setStatus($('libStatus'), '', '');
+    return await res.json().catch(() => ({}));
+  } catch (err) {
+    const offline = err instanceof TypeError;
+    setStatus($('libStatus'), offline ? 'Can’t reach the Zdress server.' : `${failureMessage} ${err.message}`, 'err');
+    return null;
+  }
+}
+
 let library = { collections: [], looks: [] };
 let activeCollection = 'all';
 
@@ -470,7 +492,7 @@ $('collConfirm').addEventListener('click', async (e) => {
   const go = e.target.closest('[data-confirm-del]');
   if (go) {
     $('collConfirm').hidden = true;
-    await fetch(`${API}/api/collections/${go.dataset.confirmDel}`, { method: 'DELETE' });
+    await api(`/api/collections/${go.dataset.confirmDel}`, { method: 'DELETE' }, 'Could not delete that collection —');
     activeCollection = 'all';
     loadLibrary();
   } else if (e.target.closest('[data-cancel-del]')) {
@@ -488,12 +510,12 @@ $('chips').addEventListener('keydown', (e) => {
 $('addCollection').addEventListener('click', async () => {
   const name = $('newCollection').value.trim();
   if (!name) return;
-  await fetch(`${API}/api/collections`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
-  });
-  $('newCollection').value = '';
+  const made = await api(
+    '/api/collections',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) },
+    'Could not create that collection —'
+  );
+  if (made) $('newCollection').value = '';
   loadLibrary();
 });
 
@@ -573,19 +595,20 @@ $('cardMenu').addEventListener('click', async (e) => {
   if (add) {
     const name = $('menuNewCollection').value.trim();
     if (!name) return $('menuNewCollection').focus();
-    const res = await fetch(`${API}/api/collections`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
     // A new collection made from a card is made *for* that card, so file it there.
-    const created = await res.json().catch(() => null);
+    const created = await api(
+      '/api/collections',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) },
+      'Could not create that collection —'
+    );
     closeMenu();
-    if (created?.id) await fetch(`${API}/api/looks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ collectionId: created.id }),
-    });
+    if (created?.id) {
+      await api(
+        `/api/looks/${id}`,
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectionId: created.id }) },
+        'Collection made, but the look could not be filed —'
+      );
+    }
     loadLibrary();
     return;
   }
@@ -594,18 +617,18 @@ $('cardMenu').addEventListener('click', async (e) => {
   if (move) {
     const collectionId = move.dataset.move || null;
     closeMenu();
-    await fetch(`${API}/api/looks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ collectionId }),
-    });
+    await api(
+      `/api/looks/${id}`,
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectionId }) },
+      'Could not move that look —'
+    );
     loadLibrary();
     return;
   }
 
   if (e.target.closest('[data-delete]')) {
     closeMenu();
-    await fetch(`${API}/api/looks/${id}`, { method: 'DELETE' });
+    await api(`/api/looks/${id}`, { method: 'DELETE' }, 'Could not delete that look —');
     loadLibrary();
   }
 });

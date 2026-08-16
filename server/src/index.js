@@ -14,7 +14,7 @@ import multer from 'multer';
 
 import { uploadImage, createClothTask, pollClothTask, MAX_UPLOAD_BYTES } from './youcam.js';
 import { inspectGarment, inspectPerson } from './garment.js';
-import { normalizeImage, toDataUrl } from './image.js';
+import { normalizeImage, toDataUrl, fetchImage } from './image.js';
 import * as library from './library.js';
 import { prepareGarment } from './prep.js';
 import { splitCollage } from './collage.js';
@@ -95,10 +95,7 @@ app.post('/api/tryon', async (req, res) => {
     // 1. Download once, then normalise. Retailer CDNs don't always serve what
     //    their URLs promise — AJIO returns AVIF from a .jpg path, which neither
     //    OpenAI nor YouCam accepts.
-    const imgRes = await fetch(garmentImageUrl);
-    if (!imgRes.ok) throw new Error(`Could not download the product image (HTTP ${imgRes.status}).`);
-    const raw = Buffer.from(await imgRes.arrayBuffer());
-
+    const raw = await fetchImage(garmentImageUrl);
     const { buffer, contentType, changed } = await normalizeImage(raw);
     if (changed) log(`  normalised: ${changed}`);
 
@@ -228,9 +225,8 @@ app.post('/api/classify', async (req, res) => {
      * double-taps a tick, or a second tab asks about the same product.
      */
     const out = await dedupe(`classify:${garmentImageUrl}`, async () => {
-      const r = await fetch(garmentImageUrl);
-      if (!r.ok) throw new Error(`Could not download the product image (HTTP ${r.status}).`);
-      const { buffer, contentType } = await normalizeImage(Buffer.from(await r.arrayBuffer()));
+      const raw = await fetchImage(garmentImageUrl);
+      const { buffer, contentType } = await normalizeImage(raw);
 
       const garment = await inspectGarment(toDataUrl(buffer, contentType), productTitle);
       return {
@@ -297,8 +293,10 @@ async function renderChain(personFileId, pieces) {
 
     // Re-upload the render as the person image for the following layer.
     if (i < pieces.length - 1) {
-      const stepRes = await fetch(resultUrl);
-      const { buffer, contentType } = await normalizeImage(Buffer.from(await stepRes.arrayBuffer()));
+      // Without this an error page is passed on as if it were the render, and
+      // the failure surfaces several steps later as "could not be read as an image".
+      const stepRaw = await fetchImage(resultUrl, `step ${i + 1} of the render`);
+      const { buffer, contentType } = await normalizeImage(stepRaw);
       srcFileId = await uploadImage(buffer, { fileName: 'step.jpg', contentType, kind: 'cloth' });
     }
   }
@@ -324,9 +322,8 @@ app.post('/api/outfit', async (req, res) => {
     //    reported before any render time is spent.
     const screened = [];
     for (const item of items) {
-      const r = await fetch(item.garmentImageUrl);
-      if (!r.ok) throw new Error(`Could not download "${item.productTitle || 'an item'}".`);
-      const { buffer, contentType, changed } = await normalizeImage(Buffer.from(await r.arrayBuffer()));
+      const raw = await fetchImage(item.garmentImageUrl, `"${item.productTitle || 'an item'}"`);
+      const { buffer, contentType, changed } = await normalizeImage(raw);
       if (changed) log(`  normalised: ${changed}`);
 
       const garment = await inspectGarment(toDataUrl(buffer, contentType), item.productTitle);
@@ -394,8 +391,10 @@ const wrap = (fn) => async (req, res) => {
   try {
     res.json(await fn(req));
   } catch (err) {
+    // A caller mistake ("name that collection") is a 400; only real faults are 500s.
+    const status = err?.status || 500;
     log('library:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(status).json({ error: err.message });
   }
 };
 
@@ -413,15 +412,24 @@ app.patch('/api/looks/:id', wrap((req) => library.moveLook(req.params.id, req.bo
 app.delete('/api/looks/:id', wrap((req) => library.deleteLook(req.params.id)));
 
 /*
- * Without this, an oversized upload is handled by Express's default handler,
- * which replies with an HTML error page — the panel then fails parsing it as
- * JSON and reports something unrelated.
+ * Everything the extension calls parses the reply as JSON, so every failure has
+ * to be JSON too. Express's defaults are HTML, which the panel then fails to
+ * parse and reports as something unrelated to the real problem.
  */
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'No such endpoint.', code: 'NOT_FOUND' });
+});
+
 app.use((err, _req, res, _next) => {
   if (err?.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: 'That photo is over 10MB. Try a smaller one.', code: 'TOO_LARGE' });
   }
-  log('unhandled:', err?.message || err);
+  // A malformed body is the caller's mistake, not a server fault, and the raw
+  // parser message ("Unexpected token 'n'") means nothing to anyone.
+  if (err?.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: 'That request body was not valid JSON.', code: 'BAD_JSON' });
+  }
+  log('error:', err?.message || err);
   res.status(500).json({ error: err?.message || 'Something went wrong.', code: 'SERVER_ERROR' });
 });
 

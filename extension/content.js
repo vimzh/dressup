@@ -26,8 +26,20 @@
 
   const MARK = 'data-zdress';
 
-  /** productImageUrl -> { resultUrl, payload }. Survives grid re-renders. */
+  /**
+   * productImageUrl -> { resultUrl, payload }. Survives grid re-renders.
+   *
+   * Bounded, because an infinite-scroll session would otherwise hold every
+   * render of the day. The oldest entry goes first; its card simply shows the
+   * product photo again, which is the same as never having tried it on.
+   */
+  const MAX_RENDERS = 60;
   const renders = new Map();
+
+  function rememberRender(url, entry) {
+    renders.set(url, entry);
+    while (renders.size > MAX_RENDERS) renders.delete(renders.keys().next().value);
+  }
 
   /*
    * Adapters that scan for "any non-icon <img>" (Tata CLiQ) would otherwise pick
@@ -282,7 +294,7 @@
         // itself is just a picture and the listing is what you actually want.
         products: [{ title: info.title, url: absUrl(site.link(card)), image: imageUrl, site: site.label }],
       };
-      renders.set(imageUrl, { resultUrl: res.resultUrl, payload });
+      rememberRender(imageUrl, { resultUrl: res.resultUrl, payload });
       mountRender(card, { resultUrl: res.resultUrl, payload });
     } finally {
       stopShimmer(card);

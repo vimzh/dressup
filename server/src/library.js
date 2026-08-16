@@ -19,6 +19,15 @@ const DB = path.join(ROOT, 'db.json');
 
 const EMPTY = { collections: [], looks: [] };
 
+/** A caller mistake rather than a server fault, so the route can answer 400. */
+export class BadRequest extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'BadRequest';
+    this.status = 400;
+  }
+}
+
 async function read() {
   try {
     return { ...EMPTY, ...JSON.parse(await fs.readFile(DB, 'utf8')) };
@@ -57,17 +66,25 @@ export async function listAll() {
 }
 
 export function createCollection(name) {
+  const clean = String(name ?? '').trim().slice(0, 60);
+  // Silently filing an empty submit as "Untitled" just litters the list.
+  if (!clean) throw new BadRequest('Give the collection a name.');
+
   return write((db) => {
-    const c = { id: id(), name: String(name || 'Untitled').slice(0, 60).trim(), createdAt: new Date().toISOString() };
+    const c = { id: id(), name: clean, createdAt: new Date().toISOString() };
     db.collections.push(c);
     return c;
   });
 }
 
 export function renameCollection(cid, name) {
+  const clean = String(name ?? '').trim().slice(0, 60);
+  if (!clean) throw new BadRequest('Give the collection a name.');
+
   return write((db) => {
     const c = db.collections.find((x) => x.id === cid);
-    if (c) c.name = String(name).slice(0, 60).trim();
+    if (!c) throw new BadRequest('That collection no longer exists.');
+    c.name = clean;
     return c;
   });
 }
@@ -100,7 +117,7 @@ export async function saveLook({
   productUrl = '',
   products = [],
 }) {
-  if (!resultUrl) throw new Error('Nothing to save — no render URL.');
+  if (!resultUrl) throw new BadRequest('Nothing to save — no render URL.');
 
   const res = await fetch(resultUrl);
   if (!res.ok) {

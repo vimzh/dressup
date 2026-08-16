@@ -53,6 +53,22 @@ export async function normalizeImage(buffer) {
   return { buffer: out, contentType: 'image/jpeg', changed: reasons.join(', ') };
 }
 
+/**
+ * Fetches a remote image, turning transport failures into something readable.
+ * Node's fetch throws a bare "fetch failed" for DNS, TLS and connection errors,
+ * which tells a user nothing about what went wrong.
+ */
+export async function fetchImage(url, label = 'the product image') {
+  let res;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new Error(`Could not reach ${label}. The site may be blocking it, or you may be offline.`);
+  }
+  if (!res.ok) throw new Error(`Could not download ${label} (HTTP ${res.status}).`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /** Builds the data URL the vision model consumes. */
 export function toDataUrl(buffer, contentType = 'image/jpeg') {
   return `data:${contentType};base64,${buffer.toString('base64')}`;

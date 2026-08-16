@@ -114,7 +114,9 @@ async function verifyFaithful(originalBuf, preppedBuf) {
     ],
     response_format: { type: 'json_schema', json_schema: { name: 'fidelity', strict: true, schema: VERIFY_SCHEMA } },
   }));
-  return JSON.parse(res.choices[0].message.content);
+  const raw = res.choices[0]?.message?.content;
+  if (!raw) throw new Error('Fidelity check returned an empty response.');
+  return JSON.parse(raw);
 }
 
 /**
