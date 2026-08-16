@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+
+  body {
+    width: 300px;
+    margin: 0;
+    padding: 18px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1b1820;
+    background: #fff;
+  }
+
+  h1 {
+    margin: 0 0 2px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .sub { margin: 0 0 14px; font-size: 12px; color: #6b6577; line-height: 1.45; }
+
+  .photo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: 190px;
+    margin-bottom: 12px;
+    border: 1.5px dashed #d9d4e2;
+    border-radius: 12px;
+    background: #faf9fc;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .photo:hover { border-color: #7c3aed; background: #f7f4fe; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; }
+
+  .placeholder { text-align: center; padding: 0 18px; }
+  .placeholder .icon { font-size: 26px; }
+  .placeholder p { margin: 6px 0 0; font-size: 12px; color: #6b6577; line-height: 1.45; }
+
+  button {
+    width: 100%;
+    padding: 9px;
+    border: 0;
+    border-radius: 9px;
+    background: #7c3aed;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) { background: #6d28d9; }
+  button:disabled { background: #cdc7db; cursor: default; }
+
+  .status { margin-top: 10px; font-size: 12px; line-height: 1.45; text-align: center; min-height: 16px; }
+  .status.ok { color: #16794b; }
+  .status.err { color: #b4232a; }
+  .status.warn { color: #8a5a00; }
+  .status.busy { color: #6b6577; }
+
+  input[type="file"] { display: none; }
+
+  .outfit { margin-top: 14px; padding-top: 13px; border-top: 1px solid #efedf3; }
+  .outfit-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .outfit-head h2 { margin: 0; font-size: 12px; font-weight: 700; }
+  .outfit-head span { color: #7c3aed; }
+
+  .link {
+    width: auto; padding: 0; background: none; border: 0;
+    color: #837d90; font-size: 11px; font-weight: 500; cursor: pointer;
+  }
+  .link:hover { color: #b4232a; background: none; }
+
+  .strip { display: flex; gap: 6px; margin-bottom: 9px; }
+  .strip img {
+    width: 44px; height: 58px; object-fit: cover;
+    border-radius: 6px; border: 1px solid #ebe8f0; background: #faf9fc;
+  }
+
+  .outfit-note { margin: 8px 0 0; font-size: 11px; line-height: 1.45; text-align: center; color: #6b6577; }
+  .outfit-note.err { color: #b4232a; }
+
+  .tip {
+    margin: 12px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid #efedf3;
+    font-size: 11px;
+    color: #837d90;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+  <h1>DressUp</h1>
+  <p class="sub">Add your photo once. Then hit <strong>Try this look</strong> on any Myntra product.</p>
+
+  <label class="photo" id="drop" for="file">
+    <div class="placeholder" id="placeholder">
+      <div class="icon">📸</div>
+      <p>Click to add a photo<br>Full body, facing forward</p>
+    </div>
+    <img id="preview" hidden alt="Your uploaded photo">
+  </label>
+  <input type="file" id="file" accept="image/*">
+
+  <button id="replace" hidden>Replace photo</button>
+  <p class="status" id="status"></p>
+
+  <div class="outfit" id="outfit" hidden>
+    <div class="outfit-head">
+      <h2>Your fit <span id="count"></span></h2>
+      <button class="link" id="clear">Clear</button>
+    </div>
+    <div class="strip" id="strip"></div>
+    <button id="tryfit">Try this fit</button>
+    <p class="outfit-note" id="outfitNote"></p>
+  </div>
+
+  <p class="tip">Your photo goes to your own local DressUp server and on to YouCam for rendering. It is never sent anywhere else.</p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+/**
+ * Injects a "Try this look" button onto every product card and renders the
+ * try-on result in an overlay.
+ *
+ * All retailer-specific knowledge lives in sites.js; this file only deals with
+ * the interaction. Two behaviours are common to every supported grid and drive
+ * the design here:
+ *
+ *   - Product images are lazy-loaded. On Myntra only ~11 of 50 cards have a real
+ *     <img> on first paint, and the URL isn't in page state either. So the button
+ *     attaches to the card and the image URL is resolved at click time.
+ *   - Grids mutate constantly (infinite scroll, virtualised lists, SPA page
+ *     changes). A MutationObserver re-runs injection on any DOM change.
+ */
+
+(() => {
+  'use strict';
+
+  const site = window.DressUpSites?.siteFor();
+  if (!site) return; // not a supported retailer
+
+  const MARK = 'data-dressup';
+
+  function productInfo(card) {
+    const img = site.image(card);
+    // Prefer the retailer's own brand/name markup, fall back to the URL slug —
+    // several of these sites use build-hashed class names that break on deploy.
+    const title = site.title(card) || window.DressUpSites.titleFromSlug(site.link(card));
+    return { imageUrl: img?.src ? site.highRes(img.src) : null, title };
+  }
+
+  /**
+   * Cards outside the viewport render a placeholder instead of an <img>, and the
+   * URL isn't exposed anywhere else in the DOM — it can only be read once the
+   * lazy-loader has swapped the real image in. Nudging the card into view
+   * triggers that within ~250ms.
+   */
+  function resolveImageUrl(card, { timeoutMs = 3000 } = {}) {
+    const existing = site.image(card);
+    if (existing?.src) return Promise.resolve(site.highRes(existing.src));
+
+    card.scrollIntoView({ block: 'center', behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+
+    return new Promise((resolve) => {
+      const deadline = Date.now() + timeoutMs;
+      const tick = () => {
+        const img = site.image(card);
+        if (img?.src) return resolve(site.highRes(img.src));
+        if (Date.now() > deadline) return resolve(null);
+        setTimeout(tick, 150);
+      };
+      tick();
+    });
+  }
+
+  // ------------------------------------------------------------- selection
+
+  /*
+   * Ticking items builds an outfit across cards — and across retailers, since the
+   * selection lives in extension storage rather than on the page. Items are keyed
+   * by image URL so the tick survives the grid re-rendering underneath it.
+   */
+  const MAX_ITEMS = 4;
+  let selection = [];
+
+  const selKey = (url) => url;
+  const isSelected = (url) => selection.some((s) => selKey(s.imageUrl) === selKey(url));
+
+  async function loadSelection() {
+    ({ selection = [] } = await chrome.storage.local.get('selection'));
+    refreshTicks();
+  }
+
+  async function saveSelection() {
+    await chrome.storage.local.set({ selection });
+    refreshTicks();
+  }
+
+  async function toggleSelect(card) {
+    let url = productInfo(card).imageUrl;
+    if (!url) url = await resolveImageUrl(card);
+    if (!url) return;
+
+    const info = productInfo(card);
+    if (isSelected(url)) {
+      selection = selection.filter((s) => selKey(s.imageUrl) !== selKey(url));
+    } else {
+      if (selection.length >= MAX_ITEMS) {
+        flashTick(card, `Up to ${MAX_ITEMS} pieces`);
+        return;
+      }
+      selection = [...selection, { imageUrl: url, title: info.title, site: site.label }];
+    }
+    await saveSelection();
+  }
+
+  /** Re-applies selected styling; runs after any storage change or DOM pass. */
+  function refreshTicks() {
+    document.querySelectorAll('.dressup-card').forEach((card) => {
+      const url = site.image(card)?.src;
+      const on = url ? isSelected(site.highRes(url)) : false;
+      card.classList.toggle('dressup-selected', on);
+      const tick = card.querySelector('.dressup-tick');
+      if (tick) {
+        tick.classList.toggle('is-on', on);
+        tick.setAttribute('aria-pressed', String(on));
+        tick.title = on ? 'Remove from outfit' : 'Add to outfit';
+      }
+    });
+  }
+
+  function flashTick(card, msg) {
+    const tick = card.querySelector('.dressup-tick');
+    if (!tick) return;
+    tick.classList.add('is-blocked');
+    tick.title = msg;
+    setTimeout(() => tick.classList.remove('is-blocked'), 600);
+  }
+
+  // Keep every open tab's ticks in sync — selection is shared across retailers.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.selection) {
+      selection = changes.selection.newValue || [];
+      refreshTicks();
+    }
+  });
+
+  // ------------------------------------------------------------- card state
+
+  /**
+   * Marks a card as rendering with a shimmer sweep across its image.
+   * The overlay can be dismissed while a render is still running, so the card
+   * itself carries the progress — otherwise closing the modal loses any sign
+   * that work is in flight.
+   */
+  function startShimmer(card) {
+    const box = site.imageBox(card) || card;
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+    if (box.querySelector('.dressup-shimmer')) return;
+
+    const veil = document.createElement('div');
+    veil.className = 'dressup-shimmer';
+    veil.innerHTML = '<span class="dressup-shimmer-chip"><i class="dressup-shimmer-dot"></i>Trying on…</span>';
+    box.appendChild(veil);
+
+    card.classList.add('dressup-busy');
+    card.querySelector('.dressup-btn')?.setAttribute('disabled', 'true');
+  }
+
+  function stopShimmer(card) {
+    card.querySelector('.dressup-shimmer')?.remove();
+    card.classList.remove('dressup-busy');
+    card.querySelector('.dressup-btn')?.removeAttribute('disabled');
+  }
+
+  // ---------------------------------------------------------------- overlay
+
+  let overlay;
+
+  function ensureOverlay() {
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.className = 'dressup-overlay';
+    overlay.innerHTML = `
+      <div class="dressup-modal" role="dialog" aria-modal="true" aria-label="Virtual try-on">
+        <button class="dressup-close" aria-label="Close">&times;</button>
+        <div class="dressup-body"></div>
+      </div>`;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay || e.target.classList.contains('dressup-close')) closeOverlay();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlay?.classList.contains('is-open')) closeOverlay();
+    });
+
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function openOverlay(html) {
+    const el = ensureOverlay();
+    el.querySelector('.dressup-body').innerHTML = html;
+    el.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function setBody(html) {
+    if (overlay) overlay.querySelector('.dressup-body').innerHTML = html;
+  }
+
+  function closeOverlay() {
+    overlay?.classList.remove('is-open');
+    document.body.style.overflow = '';
+    stopTicker();
+  }
+
+  // Try-on runs 10-30s. A static spinner reads as a hang, so show elapsed time
+  // and move through honest status copy.
+  let ticker;
+  const STAGES = [
+    [0, 'Checking the garment…'],
+    [4, 'Sending it to the try-on engine…'],
+    [10, 'Rendering you in this look…'],
+    [25, 'Almost there — adding the finishing details…'],
+  ];
+
+  function startTicker() {
+    const started = Date.now();
+    stopTicker();
+    ticker = setInterval(() => {
+      const secs = Math.floor((Date.now() - started) / 1000);
+      const stage = [...STAGES].reverse().find(([t]) => secs >= t)?.[1] ?? '';
+      const stageEl = overlay?.querySelector('.dressup-stage');
+      const timeEl = overlay?.querySelector('.dressup-elapsed');
+      if (stageEl) stageEl.textContent = stage;
+      if (timeEl) timeEl.textContent = `${secs}s`;
+    }, 250);
+  }
+
+  function stopTicker() {
+    clearInterval(ticker);
+    ticker = null;
+  }
+
+  const esc = (s) =>
+    String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function loadingView({ title, imageUrl }) {
+    return `
+      <div class="dressup-loading">
+        <div class="dressup-thumb"><img src="${imageUrl ? esc(imageUrl) : ''}" alt=""></div>
+        <div class="dressup-spinner"></div>
+        <p class="dressup-stage">Checking the garment…</p>
+        <p class="dressup-meta">${esc(title)} · <span class="dressup-elapsed">0s</span></p>
+      </div>`;
+  }
+
+  function resultView({ resultUrl, garment, title }) {
+    return `
+      <div class="dressup-result">
+        <img class="dressup-result-img" src="${esc(resultUrl)}" alt="You wearing ${esc(title)}">
+        <div class="dressup-caption">
+          ${esc(title)}
+          ${garment?.description ? `<span class="dressup-desc">${esc(garment.description)}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function errorView(code, message) {
+    const cta =
+      code === 'NO_PERSON'
+        ? '<p class="dressup-hint">Click the DressUp icon in your Chrome toolbar to add your photo.</p>'
+        : code === 'NO_SERVER'
+        ? '<p class="dressup-hint">Start it with <code>npm start</code> in the <code>server/</code> folder.</p>'
+        : '';
+    const title = code === 'NOT_APPAREL' ? 'Can’t try this one on' : 'Something went wrong';
+    return `
+      <div class="dressup-error">
+        <div class="dressup-error-icon">${code === 'NOT_APPAREL' ? '👕' : '⚠️'}</div>
+        <h3>${title}</h3>
+        <p>${esc(message)}</p>
+        ${cta}
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- actions
+
+  async function handleClick(card) {
+    if (card.classList.contains('dressup-busy')) return; // already rendering
+
+    const info = productInfo(card);
+    startShimmer(card);
+    openOverlay(loadingView(info));
+    startTicker();
+
+    try {
+      if (!info.imageUrl) {
+        info.imageUrl = await resolveImageUrl(card);
+        if (!info.imageUrl) {
+          setBody(errorView('NO_IMAGE', 'This product’s image didn’t load. Scroll it into view and try again.'));
+          return;
+        }
+        const thumb = overlay?.querySelector('.dressup-thumb img');
+        if (thumb) thumb.src = info.imageUrl;
+      }
+
+      const res = await chrome.runtime.sendMessage({
+        type: 'TRY_ON',
+        garmentImageUrl: info.imageUrl,
+        productTitle: info.title,
+      });
+
+      // The modal may have been dismissed mid-render; a finished render is worth
+      // re-opening rather than dropping.
+      if (res?.ok) {
+        openOverlay(resultView({ ...res, title: info.title }));
+      } else {
+        openOverlay(errorView(res?.code, res?.error || 'Try-on failed.'));
+      }
+    } finally {
+      stopTicker();
+      stopShimmer(card);
+    }
+  }
+
+  function outfitResultView({ resultUrl, applied, skipped, rejected }) {
+    const notes = [
+      ...(skipped || []).map((s) => `Skipped <strong>${esc(s.title)}</strong> — ${esc(s.why)}.`),
+      ...(rejected || []).map((r) => `Couldn’t use <strong>${esc(r.title)}</strong> — ${esc(r.reason)}`),
+    ];
+    return `
+      <div class="dressup-result">
+        <img class="dressup-result-img" src="${esc(resultUrl)}" alt="You wearing the selected outfit">
+        <div class="dressup-caption">
+          <div class="dressup-applied">
+            ${applied.map((a) => `<span class="dressup-pill">${esc(a.description || a.title)}</span>`).join('')}
+          </div>
+          ${notes.length ? `<div class="dressup-notes">${notes.join('<br>')}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  /** Runs a full outfit from the current selection. Triggered by the popup. */
+  async function runOutfit() {
+    const { selection: items = [] } = await chrome.storage.local.get('selection');
+    if (!items.length) {
+      openOverlay(errorView('NO_ITEMS', 'Tick a few items first, then try the fit.'));
+      return;
+    }
+
+    openOverlay(`
+      <div class="dressup-loading">
+        <div class="dressup-strip">
+          ${items.map((i) => `<img src="${esc(i.imageUrl)}" alt="">`).join('')}
+        </div>
+        <div class="dressup-spinner"></div>
+        <p class="dressup-stage">Putting the outfit together…</p>
+        <p class="dressup-meta">${items.length} piece${items.length > 1 ? 's' : ''} · <span class="dressup-elapsed">0s</span></p>
+      </div>`);
+
+    // Each piece is a separate render, so the wait scales with the selection.
+    const started = Date.now();
+    stopTicker();
+    ticker = setInterval(() => {
+      const secs = Math.floor((Date.now() - started) / 1000);
+      const el = overlay?.querySelector('.dressup-elapsed');
+      if (el) el.textContent = `${secs}s`;
+      const stage = overlay?.querySelector('.dressup-stage');
+      if (stage && secs > 6) stage.textContent = `Layering piece ${Math.min(items.length, Math.floor(secs / 13) + 1)} of ${items.length}…`;
+    }, 250);
+
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'TRY_OUTFIT', items });
+      if (res?.ok) openOverlay(outfitResultView(res));
+      else openOverlay(errorView(res?.code, res?.error || 'Outfit try-on failed.'));
+    } finally {
+      stopTicker();
+    }
+  }
+
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === 'RUN_OUTFIT') runOutfit();
+  });
+
+  function inject(card) {
+    if (card.hasAttribute(MARK)) return;
+    card.setAttribute(MARK, '1');
+    card.classList.add('dressup-card');
+
+    // Cards are usually wrapped in an <a>; the button must sit above it and
+    // swallow the click so we don't navigate to the product page.
+    if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
+
+    const btn = document.createElement('button');
+    btn.className = 'dressup-btn';
+    btn.type = 'button';
+    btn.innerHTML = '<span class="dressup-btn-icon">✨</span><span>Try this look</span>';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleClick(card);
+    });
+
+    // Tick = add to outfit. Sits beside the try-on button so one click previews
+    // a single piece and the other builds a combination.
+    const tick = document.createElement('button');
+    tick.className = 'dressup-tick';
+    tick.type = 'button';
+    tick.setAttribute('aria-pressed', 'false');
+    tick.title = 'Add to outfit';
+    tick.innerHTML =
+      '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    tick.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSelect(card);
+    });
+
+    card.appendChild(tick);
+    card.appendChild(btn);
+  }
+
+  function injectAll() {
+    try {
+      site.cards().forEach(inject);
+      refreshTicks();
+    } catch {
+      /* a mid-render DOM swap can invalidate nodes; the next pass picks them up */
+    }
+  }
+
+  // Grids keep changing — infinite scroll, virtualised lists, SPA navigation.
+  // Coalesce bursts of mutations into a single injection pass.
+  let scheduled = false;
+  const observer = new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      injectAll();
+    });
+  });
+
+  loadSelection();
+  injectAll();
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
