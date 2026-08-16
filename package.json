@@ -2,13 +2,19 @@
   "name": "zdress",
   "version": "1.0.0",
   "private": true,
-  "description": "Virtual try-on where you actually shop — Chrome and Firefox extension plus its local backend.",
+  "description": "Root commands for the Zdress web app, API, and browser extension.",
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "build:chrome": "node scripts/build.mjs chrome",
-    "build:firefox": "node scripts/build.mjs firefox",
-    "package": "node scripts/build.mjs --zip",
-    "lint:firefox": "npm run build:firefox && npx --yes web-ext@8 lint --source-dir=dist/firefox --self-hosted",
-    "start": "npm start --prefix server"
+    "build": "npm run build:extension && npm run build:web",
+    "build:extension": "npm --prefix apps/extension run build",
+    "build:web": "npm --prefix apps/web run build",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "lint": "npm run lint:web && npm run lint:firefox",
+    "lint:web": "npm --prefix apps/web run lint",
+    "lint:firefox": "npm --prefix apps/extension run lint:firefox",
+    "package": "npm --prefix apps/extension run package",
+    "start": "npm run start:api",
+    "start:api": "npm --prefix apps/api run start",
+    "start:web": "npm --prefix apps/web run start"
   }
 }

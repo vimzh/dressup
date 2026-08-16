@@ -51,7 +51,7 @@ vision pre-flight on every product image before a single API unit is spent.
 The architecture is three pieces:
 
 - **Extension (MV3)** — injects the controls, resolves product images, renders results.
-  All retailer-specific knowledge is isolated to one file, `extension/shared/sites.js`; adding a
+  All retailer-specific knowledge is isolated to one file, `apps/extension/shared/sites.js`; adding a
   store is a ten-line entry.
 - **Local Node server** — the only place API keys exist. YouCam and OpenAI are both
   server-to-server; a key shipped inside an extension is trivially extractable and CORS would

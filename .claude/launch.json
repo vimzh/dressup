@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "landing",
+      "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "landing", "run", "dev"],
+      "runtimeArgs": ["--prefix", "apps/web", "run", "dev"],
       "port": 3000,
       "autoPort": true
     }

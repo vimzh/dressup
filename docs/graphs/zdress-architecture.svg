@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description" data-layout-version="cloudy-native-v2" data-spec-sha256="7d3a0f10e03e55a7900c65c97794b0f77cbdb6b98f5924a3e6098a71b4e21516">
+  <title id="title">How Zdress turns browsing into trying on</title>
+  <desc id="description">Architecture flow from a supported fashion retailer through the Zdress extension, local API, OpenAI screening, YouCam rendering, in-page results, and saved collections.</desc>
+  <defs>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
+    <marker id="arrow-violet" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/></marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#16a34a"/></marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#d97706"/></marker>
+    <marker id="arrow-teal" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#0f766e"/></marker>
+    <marker id="arrow-rose" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#e11d48"/></marker>
+    <marker id="arrow-slate" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#57534e"/></marker>
+    <style>
+      text { font-family: "Comic Sans MS", "Segoe Print", cursive; }
+      .title { font-size: 36px; fill: #292524; }
+      .subtitle { font-size: 17px; fill: #78716c; }
+      .zone-label { font-size: 14px; letter-spacing: 1px; }
+      .node-title { font-size: 20px; fill: #292524; }
+      .node-body { font-size: 15px; fill: #44403c; }
+      .node-note { font-size: 13px; fill: #57534e; }
+      .edge-label { font-size: 13px; fill: #57534e; paint-order: stroke; stroke: #fffdf8; stroke-width: 4px; stroke-linejoin: round; }
+      .footer { font-size: 13px; fill: #57534e; }
+      .arrow { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#fffdf8"/>
+  <text x="54" y="62" class="title">How Zdress turns browsing into trying on</text>
+  <text x="54" y="94" class="subtitle">The extension keeps the shopper in context while a local API screens, renders, and saves each look</text>
+  <rect data-zone-id="store" x="42.0" y="130" width="331.8" height="690" rx="28" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="62.0" y="160" class="zone-label" fill="#1e40af">1 · WHERE THE DECISION HAPPENS</text>
+  <rect data-zone-id="zdress" x="401.8" y="130" width="530.9" height="690" rx="28" fill="#faf5ff" stroke="#c4b5fd" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="421.8" y="160" class="zone-label" fill="#5b21b6">2 · THE ZDRESS BRIDGE</text>
+  <rect data-zone-id="outcome" x="960.7" y="130" width="597.3" height="690" rx="28" fill="#f0fdf4" stroke="#86efac" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="980.7" y="160" class="zone-label" fill="#166534">3 · SCREENED, RENDERED, KEPT</text>
+  <path class="arrow" data-edge="retailer--content" d="M343.8 408.0 H387.8 V258.0 H431.8" stroke="#7c3aed" marker-end="url(#arrow-violet)"/>
+  <path class="arrow" data-edge="content--worker" d="M667.3 314.0 V352.0" stroke="#7c3aed" marker-end="url(#arrow-violet)"/>
+  <path class="arrow" data-edge="worker--api" d="M667.3 464.0 V502.0" stroke="#7c3aed" marker-end="url(#arrow-violet)"/>
+  <path class="arrow" data-edge="api--screen" d="M902.7 558.0 H946.7 V258.0 H990.7" stroke="#16a34a" marker-end="url(#arrow-green)"/>
+  <path class="arrow" data-edge="screen--render" d="M1259.4 315.0 V351.0" stroke="#16a34a" marker-end="url(#arrow-green)"/>
+  <path class="arrow" data-edge="render--result" d="M1259.4 465.0 V502.0" stroke="#16a34a" marker-end="url(#arrow-green)"/>
+  <path class="arrow" data-edge="result--library" d="M1259.4 614.0 V653.0" stroke="#16a34a" marker-end="url(#arrow-green)"/>
+  <rect class="node" data-node-id="retailer" data-status="external" x="72.0" y="327.0" width="271.8" height="162.0" rx="22" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="207.9" y="362.0" text-anchor="middle" class="node-title">A shopper chooses a</text>
+  <text x="207.9" y="388.0" text-anchor="middle" class="node-title">garment</text>
+  <text x="207.9" y="419.0" text-anchor="middle" class="node-body">16 retailers · Pinterest</text>
+  <text x="207.9" y="441.0" text-anchor="middle" class="node-body">try one item or build a fit</text>
+  <text x="207.9" y="471.0" text-anchor="middle" class="node-note">The product page stays open</text>
+  <rect class="node" data-node-id="content" data-status="implemented" x="431.8" y="202.0" width="470.9" height="112.0" rx="22" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="667.3" y="237.0" text-anchor="middle" class="node-title">The extension owns the in-page controls</text>
+  <text x="667.3" y="268.0" text-anchor="middle" class="node-body">inject · select · replace · revert</text>
+  <rect class="node" data-node-id="worker" data-status="implemented" x="431.8" y="352.0" width="470.9" height="112.0" rx="22" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="667.3" y="387.0" text-anchor="middle" class="node-title">The service worker carries the request</text>
+  <text x="667.3" y="418.0" text-anchor="middle" class="node-body">person · garment · outfit · save</text>
+  <rect class="node" data-node-id="api" data-status="implemented" x="431.8" y="502.0" width="470.9" height="112.0" rx="22" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="667.3" y="537.0" text-anchor="middle" class="node-title">The local API normalizes and</text>
+  <text x="667.3" y="563.0" text-anchor="middle" class="node-title">orchestrates</text>
+  <text x="667.3" y="594.0" text-anchor="middle" class="node-body">keys stay outside the extension</text>
+  <rect class="node" data-node-id="screen" data-status="external" x="990.7" y="201.0" width="537.3" height="114.0" rx="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1259.4" y="236.0" text-anchor="middle" class="node-title">OpenAI checks the input first</text>
+  <text x="1259.4" y="267.0" text-anchor="middle" class="node-body">photo quality · apparel · category</text>
+  <text x="1259.4" y="297.0" text-anchor="middle" class="node-note">Bad inputs stop before render spend</text>
+  <rect class="node" data-node-id="render" data-status="external" x="990.7" y="351.0" width="537.3" height="114.0" rx="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1259.4" y="386.0" text-anchor="middle" class="node-title">YouCam renders each garment</text>
+  <text x="1259.4" y="417.0" text-anchor="middle" class="node-body">lower body → upper body → shoes</text>
+  <text x="1259.4" y="447.0" text-anchor="middle" class="node-note">Outfits are composed one piece at a time</text>
+  <rect class="node" data-node-id="result" data-status="implemented" x="990.7" y="502.0" width="537.3" height="112.0" rx="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1259.4" y="537.0" text-anchor="middle" class="node-title">The result returns where it started</text>
+  <text x="1259.4" y="568.0" text-anchor="middle" class="node-body">product card or side panel</text>
+  <rect class="node" data-node-id="library" data-status="implemented" x="990.7" y="653.0" width="537.3" height="114.0" rx="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1259.4" y="688.0" text-anchor="middle" class="node-title">Saved looks keep their source links</text>
+  <text x="1259.4" y="719.0" text-anchor="middle" class="node-body">render file · products · collection</text>
+  <text x="1259.4" y="749.0" text-anchor="middle" class="node-note">The render survives temporary API URLs</text>
+  <rect x="54" y="844" width="1492" height="36" rx="14" fill="#f5f5f4" stroke="#d6d3d1"/>
+  <text x="800" y="868" text-anchor="middle" class="footer">The extension keeps shopping context. The local API keeps secrets and saved files.</text>
+</svg>

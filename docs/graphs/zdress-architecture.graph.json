@@ -1,0 +1,202 @@
+{
+  "title": "How Zdress turns browsing into trying on",
+  "subtitle": "The extension keeps the shopper in context while a local API screens, renders, and saves each look",
+  "description": "Architecture flow from a supported fashion retailer through the Zdress extension, local API, OpenAI screening, YouCam rendering, in-page results, and saved collections.",
+  "footer": "The extension keeps shopping context. The local API keeps secrets and saved files.",
+  "zones": [
+    {
+      "id": "store",
+      "label": "1 · WHERE THE DECISION HAPPENS",
+      "tone": "blue",
+      "width": 0.75
+    },
+    {
+      "id": "zdress",
+      "label": "2 · THE ZDRESS BRIDGE",
+      "tone": "violet",
+      "width": 1.2
+    },
+    {
+      "id": "outcome",
+      "label": "3 · SCREENED, RENDERED, KEPT",
+      "tone": "green",
+      "width": 1.35
+    }
+  ],
+  "nodes": [
+    {
+      "id": "retailer",
+      "zone": "store",
+      "title": "A shopper chooses a garment",
+      "body": [
+        "16 retailers · Pinterest",
+        "try one item or build a fit"
+      ],
+      "note": "The product page stays open",
+      "status": "external",
+      "size": "wide",
+      "row": 2,
+      "span": 2,
+      "evidence": [
+        "apps/extension/shared/sites.js"
+      ]
+    },
+    {
+      "id": "content",
+      "zone": "zdress",
+      "title": "The extension owns the in-page controls",
+      "body": [
+        "inject · select · replace · revert"
+      ],
+      "status": "implemented",
+      "size": "wide",
+      "row": 1,
+      "span": 2,
+      "evidence": [
+        "apps/extension/shared/content.js"
+      ]
+    },
+    {
+      "id": "worker",
+      "zone": "zdress",
+      "title": "The service worker carries the request",
+      "body": [
+        "person · garment · outfit · save"
+      ],
+      "status": "implemented",
+      "size": "wide",
+      "row": 2,
+      "span": 2,
+      "evidence": [
+        "apps/extension/shared/background.js"
+      ]
+    },
+    {
+      "id": "api",
+      "zone": "zdress",
+      "title": "The local API normalizes and orchestrates",
+      "body": [
+        "keys stay outside the extension"
+      ],
+      "status": "implemented",
+      "size": "wide",
+      "row": 3,
+      "span": 2,
+      "evidence": [
+        "apps/api/src/index.js",
+        "apps/api/src/image.js"
+      ]
+    },
+    {
+      "id": "screen",
+      "zone": "outcome",
+      "title": "OpenAI checks the input first",
+      "body": [
+        "photo quality · apparel · category"
+      ],
+      "note": "Bad inputs stop before render spend",
+      "status": "external",
+      "size": "wide",
+      "row": 1,
+      "span": 2,
+      "evidence": [
+        "apps/api/src/garment.js"
+      ]
+    },
+    {
+      "id": "render",
+      "zone": "outcome",
+      "title": "YouCam renders each garment",
+      "body": [
+        "lower body → upper body → shoes"
+      ],
+      "note": "Outfits are composed one piece at a time",
+      "status": "external",
+      "size": "wide",
+      "row": 2,
+      "span": 2,
+      "evidence": [
+        "apps/api/src/youcam.js",
+        "apps/api/src/index.js"
+      ]
+    },
+    {
+      "id": "result",
+      "zone": "outcome",
+      "title": "The result returns where it started",
+      "body": [
+        "product card or side panel"
+      ],
+      "status": "implemented",
+      "size": "wide",
+      "row": 3,
+      "span": 2,
+      "evidence": [
+        "apps/extension/shared/content.js",
+        "apps/extension/shared/sidepanel.js"
+      ]
+    },
+    {
+      "id": "library",
+      "zone": "outcome",
+      "title": "Saved looks keep their source links",
+      "body": [
+        "render file · products · collection"
+      ],
+      "note": "The render survives temporary API URLs",
+      "status": "implemented",
+      "size": "wide",
+      "row": 4,
+      "span": 2,
+      "evidence": [
+        "apps/api/src/library.js",
+        "apps/extension/shared/sidepanel.js"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "retailer",
+      "to": "content",
+      "tone": "violet",
+      "route": "orthogonal",
+      "label_position": "middle"
+    },
+    {
+      "from": "content",
+      "to": "worker",
+      "tone": "violet",
+      "route": "vertical"
+    },
+    {
+      "from": "worker",
+      "to": "api",
+      "tone": "violet",
+      "route": "vertical"
+    },
+    {
+      "from": "api",
+      "to": "screen",
+      "tone": "green",
+      "route": "orthogonal"
+    },
+    {
+      "from": "screen",
+      "to": "render",
+      "tone": "green",
+      "route": "vertical"
+    },
+    {
+      "from": "render",
+      "to": "result",
+      "tone": "green",
+      "route": "vertical"
+    },
+    {
+      "from": "result",
+      "to": "library",
+      "tone": "green",
+      "route": "vertical"
+    }
+  ]
+}
