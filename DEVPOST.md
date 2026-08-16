@@ -1,4 +1,4 @@
-# Devpost submission — DressUp
+# Devpost submission — Zdress
 
 Copy the sections below into the Devpost form. Everything here is factual and verified;
 don't add claims beyond it.
@@ -28,7 +28,7 @@ in the grid, at the moment of the decision.
 
 ## What it does
 
-DressUp is a Chrome extension. Upload one photo, once. Then on Myntra, AJIO, Flipkart,
+Zdress is a Chrome extension. Upload one photo, once. Then on Myntra, AJIO, Flipkart,
 Amazon, Nykaa Fashion, SNITCH, Bewakoof, Max Fashion, Libas or Tata CLiQ, every product in
 the grid gains two controls:
 

@@ -1,5 +1,5 @@
 /**
- * DressUp backend proxy.
+ * Zdress backend proxy.
  *
  * The extension cannot talk to YouCam or OpenAI directly: both are
  * server-to-server APIs, a key shipped inside an extension is trivially
@@ -279,7 +279,7 @@ app.delete('/api/looks/:id', wrap((req) => library.deleteLook(req.params.id)));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  log(`DressUp server on http://localhost:${port}`);
+  log(`Zdress server on http://localhost:${port}`);
   if (!process.env.YOUCAM_API_KEY) log('WARNING: YOUCAM_API_KEY is not set');
   if (!process.env.OPENAI_API_KEY) log('WARNING: OPENAI_API_KEY is not set');
 });

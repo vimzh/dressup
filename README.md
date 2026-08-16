@@ -1,6 +1,6 @@
-# DressUp — virtual try-on where you actually shop
+# Zdress — virtual try-on where you actually shop
 
-<img src="extension/icons/icon128.png" width="72" alt="DressUp">
+<img src="extension/icons/icon128.png" width="72" alt="Zdress">
 
 A Chrome extension that puts a **"Try this look"** button on every product across India's
 biggest fashion sites — **Myntra, AJIO, Nykaa Fashion, Flipkart and Tata CLiQ**. Upload your
@@ -23,7 +23,7 @@ thing that mattered: the comparison between *this* item and the forty others on 
 
 ## The idea
 
-**Try-on belongs in the grid, not in a separate destination.** DressUp puts it exactly where
+**Try-on belongs in the grid, not in a separate destination.** Zdress puts it exactly where
 the decision happens. Your photo is uploaded once and reused for every product, so trying on
 the fifth item is one click, not another round of setup.
 
@@ -157,7 +157,7 @@ curl -s http://localhost:3000/api/health
 
 ### 3. Use it
 
-1. Click the DressUp icon and upload a photo — full body, facing forward, plain background works best.
+1. Click the Zdress icon and upload a photo — full body, facing forward, plain background works best.
 2. Go to any Myntra listing page, e.g. [sportswear](https://www.myntra.com/sports-wear).
 3. Hit **Try this look** on any product.
 

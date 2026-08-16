@@ -16,16 +16,16 @@
 (() => {
   'use strict';
 
-  const site = window.DressUpSites?.siteFor();
+  const site = window.ZdressSites?.siteFor();
   if (!site) return; // not a supported retailer
 
-  const MARK = 'data-dressup';
+  const MARK = 'data-zdress';
 
   function productInfo(card) {
     const img = site.image(card);
     // Prefer the retailer's own brand/name markup, fall back to the URL slug —
     // several of these sites use build-hashed class names that break on deploy.
-    const title = site.title(card) || window.DressUpSites.titleFromSlug(site.link(card));
+    const title = site.title(card) || window.ZdressSites.titleFromSlug(site.link(card));
     return { imageUrl: img?.src ? site.highRes(img.src) : null, title };
   }
 
@@ -97,11 +97,11 @@
 
   /** Re-applies selected styling; runs after any storage change or DOM pass. */
   function refreshTicks() {
-    document.querySelectorAll('.dressup-card').forEach((card) => {
+    document.querySelectorAll('.zdress-card').forEach((card) => {
       const url = site.image(card)?.src;
       const on = url ? isSelected(site.highRes(url)) : false;
-      card.classList.toggle('dressup-selected', on);
-      const tick = card.querySelector('.dressup-tick');
+      card.classList.toggle('zdress-selected', on);
+      const tick = card.querySelector('.zdress-tick');
       if (tick) {
         tick.classList.toggle('is-on', on);
         tick.setAttribute('aria-pressed', String(on));
@@ -111,7 +111,7 @@
   }
 
   function flashTick(card, msg) {
-    const tick = card.querySelector('.dressup-tick');
+    const tick = card.querySelector('.zdress-tick');
     if (!tick) return;
     tick.classList.add('is-blocked');
     tick.title = msg;
@@ -137,21 +137,21 @@
   function startShimmer(card) {
     const box = site.imageBox(card) || card;
     if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
-    if (box.querySelector('.dressup-shimmer')) return;
+    if (box.querySelector('.zdress-shimmer')) return;
 
     const veil = document.createElement('div');
-    veil.className = 'dressup-shimmer';
-    veil.innerHTML = '<span class="dressup-shimmer-chip"><i class="dressup-shimmer-dot"></i>Trying on…</span>';
+    veil.className = 'zdress-shimmer';
+    veil.innerHTML = '<span class="zdress-shimmer-chip"><i class="zdress-shimmer-dot"></i>Trying on…</span>';
     box.appendChild(veil);
 
-    card.classList.add('dressup-busy');
-    card.querySelector('.dressup-btn')?.setAttribute('disabled', 'true');
+    card.classList.add('zdress-busy');
+    card.querySelector('.zdress-btn')?.setAttribute('disabled', 'true');
   }
 
   function stopShimmer(card) {
-    card.querySelector('.dressup-shimmer')?.remove();
-    card.classList.remove('dressup-busy');
-    card.querySelector('.dressup-btn')?.removeAttribute('disabled');
+    card.querySelector('.zdress-shimmer')?.remove();
+    card.classList.remove('zdress-busy');
+    card.querySelector('.zdress-btn')?.removeAttribute('disabled');
   }
 
   // ---------------------------------------------------------------- overlay
@@ -162,15 +162,15 @@
     if (overlay) return overlay;
 
     overlay = document.createElement('div');
-    overlay.className = 'dressup-overlay';
+    overlay.className = 'zdress-overlay';
     overlay.innerHTML = `
-      <div class="dressup-modal" role="dialog" aria-modal="true" aria-label="Virtual try-on">
-        <button class="dressup-close" aria-label="Close">&times;</button>
-        <div class="dressup-body"></div>
+      <div class="zdress-modal" role="dialog" aria-modal="true" aria-label="Virtual try-on">
+        <button class="zdress-close" aria-label="Close">${icon('x', 15)}</button>
+        <div class="zdress-body"></div>
       </div>`;
 
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay || e.target.classList.contains('dressup-close')) closeOverlay();
+      if (e.target === overlay || e.target.classList.contains('zdress-close')) closeOverlay();
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && overlay?.classList.contains('is-open')) closeOverlay();
@@ -182,13 +182,13 @@
 
   function openOverlay(html) {
     const el = ensureOverlay();
-    el.querySelector('.dressup-body').innerHTML = html;
+    el.querySelector('.zdress-body').innerHTML = html;
     el.classList.add('is-open');
     document.body.style.overflow = 'hidden';
   }
 
   function setBody(html) {
-    if (overlay) overlay.querySelector('.dressup-body').innerHTML = html;
+    if (overlay) overlay.querySelector('.zdress-body').innerHTML = html;
   }
 
   function closeOverlay() {
@@ -213,8 +213,8 @@
     ticker = setInterval(() => {
       const secs = Math.floor((Date.now() - started) / 1000);
       const stage = [...STAGES].reverse().find(([t]) => secs >= t)?.[1] ?? '';
-      const stageEl = overlay?.querySelector('.dressup-stage');
-      const timeEl = overlay?.querySelector('.dressup-elapsed');
+      const stageEl = overlay?.querySelector('.zdress-stage');
+      const timeEl = overlay?.querySelector('.zdress-elapsed');
       if (stageEl) stageEl.textContent = stage;
       if (timeEl) timeEl.textContent = `${secs}s`;
     }, 250);
@@ -228,13 +228,25 @@
   const esc = (s) =>
     String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // Lucide (ISC). Inlined as paths — a content script can't pull an icon font or
+  // sprite onto a retailer page without fighting their CSP.
+  const ICONS = {
+    shirt: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  };
+
+  const icon = (name, size = 14) =>
+    `<svg class="zdress-i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+
   function loadingView({ title, imageUrl }) {
     return `
-      <div class="dressup-loading">
-        <div class="dressup-thumb"><img src="${imageUrl ? esc(imageUrl) : ''}" alt=""></div>
-        <div class="dressup-spinner"></div>
-        <p class="dressup-stage">Checking the garment…</p>
-        <p class="dressup-meta">${esc(title)} · <span class="dressup-elapsed">0s</span></p>
+      <div class="zdress-loading">
+        <div class="zdress-thumb"><img src="${imageUrl ? esc(imageUrl) : ''}" alt=""></div>
+        <div class="zdress-spinner"></div>
+        <p class="zdress-stage">Checking the garment…</p>
+        <p class="zdress-meta">${esc(title)} · <span class="zdress-elapsed">0s</span></p>
       </div>`;
   }
 
@@ -244,19 +256,19 @@
    */
   function saveBar(payload) {
     return `
-      <div class="dressup-save" data-payload="${esc(JSON.stringify(payload))}">
-        <select class="dressup-select" aria-label="Collection"><option value="">Unsorted</option></select>
-        <button class="dressup-save-btn" type="button">Save look</button>
+      <div class="zdress-save" data-payload="${esc(JSON.stringify(payload))}">
+        <select class="zdress-select" aria-label="Collection"><option value="">Unsorted</option></select>
+        <button class="zdress-save-btn" type="button">Save look</button>
       </div>`;
   }
 
   function resultView({ resultUrl, garment, title, payload }) {
     return `
-      <div class="dressup-result">
-        <img class="dressup-result-img" src="${esc(resultUrl)}" alt="You wearing ${esc(title)}">
-        <div class="dressup-caption">
+      <div class="zdress-result">
+        <img class="zdress-result-img" src="${esc(resultUrl)}" alt="You wearing ${esc(title)}">
+        <div class="zdress-caption">
           ${esc(title)}
-          ${garment?.description ? `<span class="dressup-desc">${esc(garment.description)}</span>` : ''}
+          ${garment?.description ? `<span class="zdress-desc">${esc(garment.description)}</span>` : ''}
           ${saveBar(payload)}
         </div>
       </div>`;
@@ -264,11 +276,11 @@
 
   /** Populates the collection picker and wires the save button. */
   async function initSaveBar() {
-    const bar = overlay?.querySelector('.dressup-save');
+    const bar = overlay?.querySelector('.zdress-save');
     if (!bar) return;
 
-    const select = bar.querySelector('.dressup-select');
-    const btn = bar.querySelector('.dressup-save-btn');
+    const select = bar.querySelector('.zdress-select');
+    const btn = bar.querySelector('.zdress-save-btn');
 
     const { collections = [] } = await chrome.runtime.sendMessage({ type: 'LIST_COLLECTIONS' });
     for (const c of collections) {
@@ -286,7 +298,7 @@
       btn.textContent = res?.ok ? 'Saved ✓' : 'Save failed';
       if (!res?.ok) {
         btn.disabled = false;
-        bar.insertAdjacentHTML('beforeend', `<p class="dressup-save-err">${esc(res?.error || '')}</p>`);
+        bar.insertAdjacentHTML('beforeend', `<p class="zdress-save-err">${esc(res?.error || '')}</p>`);
       }
     });
   }
@@ -294,14 +306,14 @@
   function errorView(code, message) {
     const cta =
       code === 'NO_PERSON'
-        ? '<p class="dressup-hint">Click the DressUp icon in your Chrome toolbar to add your photo.</p>'
+        ? '<p class="zdress-hint">Click the Zdress icon in your Chrome toolbar to add your photo.</p>'
         : code === 'NO_SERVER'
-        ? '<p class="dressup-hint">Start it with <code>npm start</code> in the <code>server/</code> folder.</p>'
+        ? '<p class="zdress-hint">Start it with <code>npm start</code> in the <code>server/</code> folder.</p>'
         : '';
     const title = code === 'NOT_APPAREL' ? 'Can’t try this one on' : 'Something went wrong';
     return `
-      <div class="dressup-error">
-        <div class="dressup-error-icon">${code === 'NOT_APPAREL' ? '👕' : '⚠️'}</div>
+      <div class="zdress-error">
+        <div class="zdress-error-icon">${icon(code === 'NOT_APPAREL' ? 'shirt' : 'alert', 22)}</div>
         <h3>${title}</h3>
         <p>${esc(message)}</p>
         ${cta}
@@ -311,7 +323,7 @@
   // ---------------------------------------------------------------- actions
 
   async function handleClick(card) {
-    if (card.classList.contains('dressup-busy')) return; // already rendering
+    if (card.classList.contains('zdress-busy')) return; // already rendering
 
     const info = productInfo(card);
     startShimmer(card);
@@ -325,7 +337,7 @@
           setBody(errorView('NO_IMAGE', 'This product’s image didn’t load. Scroll it into view and try again.'));
           return;
         }
-        const thumb = overlay?.querySelector('.dressup-thumb img');
+        const thumb = overlay?.querySelector('.zdress-thumb img');
         if (thumb) thumb.src = info.imageUrl;
       }
 
@@ -376,13 +388,13 @@
       pieces: applied.map((a) => a.title),
     };
     return `
-      <div class="dressup-result">
-        <img class="dressup-result-img" src="${esc(resultUrl)}" alt="You wearing the selected outfit">
-        <div class="dressup-caption">
-          <div class="dressup-applied">
-            ${applied.map((a) => `<span class="dressup-pill">${esc(a.description || a.title)}</span>`).join('')}
+      <div class="zdress-result">
+        <img class="zdress-result-img" src="${esc(resultUrl)}" alt="You wearing the selected outfit">
+        <div class="zdress-caption">
+          <div class="zdress-applied">
+            ${applied.map((a) => `<span class="zdress-pill">${esc(a.description || a.title)}</span>`).join('')}
           </div>
-          ${notes.length ? `<div class="dressup-notes">${notes.join('<br>')}</div>` : ''}
+          ${notes.length ? `<div class="zdress-notes">${notes.join('<br>')}</div>` : ''}
           ${saveBar(payload)}
         </div>
       </div>`;
@@ -397,13 +409,13 @@
     }
 
     openOverlay(`
-      <div class="dressup-loading">
-        <div class="dressup-strip">
+      <div class="zdress-loading">
+        <div class="zdress-strip">
           ${items.map((i) => `<img src="${esc(i.imageUrl)}" alt="">`).join('')}
         </div>
-        <div class="dressup-spinner"></div>
-        <p class="dressup-stage">Putting the outfit together…</p>
-        <p class="dressup-meta">${items.length} piece${items.length > 1 ? 's' : ''} · <span class="dressup-elapsed">0s</span></p>
+        <div class="zdress-spinner"></div>
+        <p class="zdress-stage">Putting the outfit together…</p>
+        <p class="zdress-meta">${items.length} piece${items.length > 1 ? 's' : ''} · <span class="zdress-elapsed">0s</span></p>
       </div>`);
 
     // Each piece is a separate render, so the wait scales with the selection.
@@ -411,9 +423,9 @@
     stopTicker();
     ticker = setInterval(() => {
       const secs = Math.floor((Date.now() - started) / 1000);
-      const el = overlay?.querySelector('.dressup-elapsed');
+      const el = overlay?.querySelector('.zdress-elapsed');
       if (el) el.textContent = `${secs}s`;
-      const stage = overlay?.querySelector('.dressup-stage');
+      const stage = overlay?.querySelector('.zdress-stage');
       if (stage && secs > 6) stage.textContent = `Layering piece ${Math.min(items.length, Math.floor(secs / 13) + 1)} of ${items.length}…`;
     }, 250);
 
@@ -437,16 +449,16 @@
   function inject(card) {
     if (card.hasAttribute(MARK)) return;
     card.setAttribute(MARK, '1');
-    card.classList.add('dressup-card');
+    card.classList.add('zdress-card');
 
     // Cards are usually wrapped in an <a>; the button must sit above it and
     // swallow the click so we don't navigate to the product page.
     if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
 
     const btn = document.createElement('button');
-    btn.className = 'dressup-btn';
+    btn.className = 'zdress-btn';
     btn.type = 'button';
-    btn.innerHTML = '<span class="dressup-btn-icon">✨</span><span>Try this look</span>';
+    btn.innerHTML = `${icon('shirt', 13)}<span>Try this look</span>`;
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -456,12 +468,11 @@
     // Tick = add to outfit. Sits beside the try-on button so one click previews
     // a single piece and the other builds a combination.
     const tick = document.createElement('button');
-    tick.className = 'dressup-tick';
+    tick.className = 'zdress-tick';
     tick.type = 'button';
     tick.setAttribute('aria-pressed', 'false');
     tick.title = 'Add to outfit';
-    tick.innerHTML =
-      '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    tick.innerHTML = icon('check', 13);
     tick.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "DressUp — Virtual Try-On for Myntra",
+  "name": "Zdress — Virtual Try-On for Myntra",
   "version": "1.0.0",
   "description": "See yourself in any Myntra product without leaving the search results. Powered by YouCam Apparel VTO.",
   "permissions": ["storage", "unlimitedStorage", "sidePanel"],
@@ -13,7 +13,7 @@
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "DressUp",
+    "default_title": "Zdress",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

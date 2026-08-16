@@ -9,7 +9,7 @@ const API_BASE = 'http://localhost:3000';
 async function tryOn({ garmentImageUrl, productTitle }) {
   const { personFileId } = await chrome.storage.local.get('personFileId');
   if (!personFileId) {
-    return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the DressUp icon in your toolbar.' };
+    return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the Zdress icon in your toolbar.' };
   }
 
   let res;
@@ -20,7 +20,7 @@ async function tryOn({ garmentImageUrl, productTitle }) {
       body: JSON.stringify({ personFileId, garmentImageUrl, productTitle }),
     });
   } catch {
-    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the DressUp server. Is it running on port 3000?' };
+    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the Zdress server. Is it running on port 3000?' };
   }
 
   const data = await res.json().catch(() => ({}));
@@ -34,7 +34,7 @@ async function tryOn({ garmentImageUrl, productTitle }) {
 async function tryOutfit({ items }) {
   const { personFileId } = await chrome.storage.local.get('personFileId');
   if (!personFileId) {
-    return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the DressUp icon in your toolbar.' };
+    return { ok: false, code: 'NO_PERSON', error: 'Upload your photo first — click the Zdress icon in your toolbar.' };
   }
 
   let res;
@@ -48,7 +48,7 @@ async function tryOutfit({ items }) {
       }),
     });
   } catch {
-    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the DressUp server. Is it running on port 3000?' };
+    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the Zdress server. Is it running on port 3000?' };
   }
 
   const data = await res.json().catch(() => ({}));
@@ -72,7 +72,7 @@ async function saveLook(payload) {
       body: JSON.stringify(payload),
     });
   } catch {
-    return { ok: false, error: 'Can’t reach the DressUp server.' };
+    return { ok: false, error: 'Can’t reach the Zdress server.' };
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return { ok: false, error: data.error || 'Could not save that look.' };

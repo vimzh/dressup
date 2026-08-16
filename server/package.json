@@ -1,9 +1,9 @@
 {
-  "name": "dressup-server",
+  "name": "zdress-server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Backend proxy for the DressUp Chrome extension (YouCam Apparel VTO + OpenAI garment detection)",
+  "description": "Backend proxy for the Zdress Chrome extension (YouCam Apparel VTO + OpenAI garment detection)",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

@@ -278,5 +278,5 @@ function siteFor(hostname = location.hostname) {
 
   // Content scripts are classic scripts sharing one isolated-world global scope,
   // so this file publishes its API rather than using ES module exports.
-  window.DressUpSites = { SITES, siteFor, titleFromSlug };
+  window.ZdressSites = { SITES, siteFor, titleFromSlug };
 })();

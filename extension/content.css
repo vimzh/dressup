@@ -1,10 +1,10 @@
 /*
- * Injected into myntra.com. Every rule is namespaced under .dressup-* and uses
+ * Injected into myntra.com. Every rule is namespaced under .zdress-* and uses
  * !important on the load-bearing properties, because Myntra's own stylesheet is
  * broad and would otherwise win on specificity.
  */
 
-.dressup-btn {
+.zdress-btn {
   position: absolute !important;
   top: 8px !important;
   right: 8px !important;
@@ -39,26 +39,26 @@
 }
 
 /* Full presence only when the shopper is actually considering this card. */
-.dressup-card:hover .dressup-btn {
+.zdress-card:hover .zdress-btn {
   opacity: 1;
   background: rgba(20, 18, 28, 0.94) !important;
 }
 
-.dressup-btn:hover {
+.zdress-btn:hover {
   transform: translateY(-1px);
-  background: #7c3aed !important;
+  background: #0a0a0a !important;
 }
 
-.dressup-btn:active {
+.zdress-btn:active {
   transform: translateY(0);
 }
 
-.dressup-btn:focus-visible {
-  outline: 2px solid #7c3aed !important;
+.zdress-btn:focus-visible {
+  outline: 2px solid #0a0a0a !important;
   outline-offset: 2px !important;
 }
 
-.dressup-btn-icon {
+.zdress-btn-icon {
   font-size: 12px !important;
   line-height: 1 !important;
 }
@@ -67,7 +67,7 @@
 
 /* Sits left of the try-on button: one click previews a single piece, the other
    adds it to a combination. */
-.dressup-tick {
+.zdress-tick {
   position: absolute !important;
   top: 8px !important;
   left: 8px !important;
@@ -94,30 +94,30 @@
   transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
-.dressup-card:hover .dressup-tick { opacity: 1; }
-.dressup-tick:hover { transform: scale(1.08); background: rgba(20, 18, 28, 0.85) !important; }
+.zdress-card:hover .zdress-tick { opacity: 1; }
+.zdress-tick:hover { transform: scale(1.08); background: rgba(20, 18, 28, 0.85) !important; }
 
-.dressup-tick.is-on {
+.zdress-tick.is-on {
   opacity: 1 !important;
-  background: #7c3aed !important;
+  background: #0a0a0a !important;
   border-color: #fff !important;
   color: #fff !important;
 }
 
-.dressup-tick.is-blocked {
+.zdress-tick.is-blocked {
   background: #b4232a !important;
-  animation: dressup-shake 0.35s ease;
+  animation: zdress-shake 0.35s ease;
 }
 
-@keyframes dressup-shake {
+@keyframes zdress-shake {
   0%, 100% { transform: translateX(0); }
   25%      { transform: translateX(-3px); }
   75%      { transform: translateX(3px); }
 }
 
 /* A selected card stays visibly marked while you browse on. */
-.dressup-selected {
-  outline: 2px solid #7c3aed !important;
+.zdress-selected {
+  outline: 2px solid #0a0a0a !important;
   outline-offset: -2px !important;
   border-radius: 6px !important;
 }
@@ -129,17 +129,17 @@
  * translated gradient rather than an animated background-position, so it runs on
  * the compositor and doesn't cost layout on a 50-card grid.
  */
-.dressup-shimmer {
+.zdress-shimmer {
   position: absolute !important;
   inset: 0 !important;
   z-index: 15 !important;
   overflow: hidden !important;
   pointer-events: none !important;
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.10), rgba(124, 58, 237, 0.16)) !important;
-  animation: dressup-veil 0.28s ease-out;
+  background: rgba(9, 9, 11, 0.14) !important;
+  animation: zdress-veil 0.28s ease-out;
 }
 
-.dressup-shimmer::after {
+.zdress-shimmer::after {
   content: '' !important;
   position: absolute !important;
   top: -20% !important;
@@ -156,28 +156,28 @@
   ) !important;
   transform: skewX(-14deg);
   filter: blur(3px);
-  animation: dressup-sweep 1.15s cubic-bezier(0.5, 0, 0.35, 1) infinite;
+  animation: zdress-sweep 1.15s cubic-bezier(0.5, 0, 0.35, 1) infinite;
 }
 
-@keyframes dressup-sweep {
+@keyframes zdress-sweep {
   from { transform: translateX(0) skewX(-14deg); }
   to   { transform: translateX(360%) skewX(-14deg); }
 }
 
-@keyframes dressup-veil {
+@keyframes zdress-veil {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
 /* The photo itself recedes so the shimmer clearly reads as "this one is working". */
-.dressup-busy img {
+.zdress-busy img {
   filter: saturate(0.65) contrast(0.96) !important;
   transition: filter 0.3s ease !important;
 }
 
 /* Centred rather than bottom-anchored: Myntra puts its ratings badge in the
    bottom-left of the image, and the two collided. */
-.dressup-shimmer-chip {
+.zdress-shimmer-chip {
   position: absolute !important;
   left: 50% !important;
   top: 50% !important;
@@ -199,33 +199,33 @@
   white-space: nowrap !important;
 }
 
-.dressup-shimmer-dot {
+.zdress-shimmer-dot {
   width: 5px !important;
   height: 5px !important;
   border-radius: 50% !important;
-  background: #a78bfa !important;
-  animation: dressup-pulse 1.15s ease-in-out infinite;
+  background: #fafafa !important;
+  animation: zdress-pulse 1.15s ease-in-out infinite;
 }
 
-@keyframes dressup-pulse {
+@keyframes zdress-pulse {
   0%, 100% { opacity: 0.35; transform: scale(0.8); }
   50%      { opacity: 1;    transform: scale(1.15); }
 }
 
-.dressup-btn[disabled] {
+.zdress-btn[disabled] {
   opacity: 0.45 !important;
   cursor: default !important;
   pointer-events: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dressup-shimmer::after { animation: none; opacity: 0.25; }
-  .dressup-shimmer-dot { animation: none; opacity: 1; }
+  .zdress-shimmer::after { animation: none; opacity: 0.25; }
+  .zdress-shimmer-dot { animation: none; opacity: 1; }
 }
 
 /* ------------------------------------------------------------------ overlay */
 
-.dressup-overlay {
+.zdress-overlay {
   position: fixed !important;
   inset: 0 !important;
   z-index: 2147483600 !important;
@@ -238,11 +238,11 @@
   backdrop-filter: blur(4px) !important;
 }
 
-.dressup-overlay.is-open {
+.zdress-overlay.is-open {
   display: flex !important;
 }
 
-.dressup-modal {
+.zdress-modal {
   position: relative !important;
   width: min(460px, 92vw) !important;
   max-height: 88vh !important;
@@ -250,20 +250,20 @@
   border-radius: 16px !important;
   background: #fff !important;
   box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.5) !important;
-  animation: dressup-rise 0.2s ease-out;
+  animation: zdress-rise 0.2s ease-out;
 }
 
-@keyframes dressup-rise {
+@keyframes zdress-rise {
   from { opacity: 0; transform: translateY(8px) scale(0.99); }
   to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dressup-modal { animation: none; }
-  .dressup-btn { transition: none; }
+  .zdress-modal { animation: none; }
+  .zdress-btn { transition: none; }
 }
 
-.dressup-close {
+.zdress-close {
   position: absolute !important;
   top: 10px !important;
   right: 12px !important;
@@ -280,18 +280,18 @@
   cursor: pointer !important;
 }
 
-.dressup-close:hover {
+.zdress-close:hover {
   background: #efedf2 !important;
 }
 
-.dressup-body {
+.zdress-body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   color: #1b1820 !important;
 }
 
 /* ------------------------------------------------------------------ states */
 
-.dressup-loading {
+.zdress-loading {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -300,7 +300,7 @@
   text-align: center !important;
 }
 
-.dressup-thumb {
+.zdress-thumb {
   width: 84px !important;
   height: 108px !important;
   overflow: hidden !important;
@@ -308,72 +308,72 @@
   background: #f4f2f7 !important;
 }
 
-.dressup-thumb img {
+.zdress-thumb img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
   display: block !important;
 }
 
-.dressup-spinner {
+.zdress-spinner {
   width: 26px !important;
   height: 26px !important;
   border: 2.5px solid #e7e3ef !important;
-  border-top-color: #7c3aed !important;
+  border-top-color: #0a0a0a !important;
   border-radius: 50% !important;
-  animation: dressup-spin 0.7s linear infinite;
+  animation: zdress-spin 0.7s linear infinite;
 }
 
-@keyframes dressup-spin {
+@keyframes zdress-spin {
   to { transform: rotate(360deg); }
 }
 
-.dressup-stage {
+.zdress-stage {
   margin: 0 !important;
   font-size: 15px !important;
   font-weight: 600 !important;
 }
 
-.dressup-meta {
+.zdress-meta {
   margin: 0 !important;
   font-size: 12px !important;
   color: #6b6577 !important;
 }
 
-.dressup-elapsed {
+.zdress-elapsed {
   font-variant-numeric: tabular-nums !important;
 }
 
-.dressup-result-img {
+.zdress-result-img {
   display: block !important;
   width: 100% !important;
   border-radius: 16px 16px 0 0 !important;
 }
 
-.dressup-caption {
+.zdress-caption {
   padding: 14px 18px 18px !important;
   font-size: 13px !important;
   color: #4b4553 !important;
 }
 
-.dressup-caption strong {
+.zdress-caption strong {
   color: #1b1820 !important;
 }
 
-.dressup-desc {
+.zdress-desc {
   display: block !important;
   margin-top: 3px !important;
   font-size: 12px !important;
-  color: #7c3aed !important;
+  color: #0a0a0a !important;
 }
 
 /* Thumbnails of the pieces being composed, shown while an outfit renders. */
-.dressup-strip {
+.zdress-strip {
   display: flex !important;
   gap: 6px !important;
 }
 
-.dressup-strip img {
+.zdress-strip img {
   width: 52px !important;
   height: 68px !important;
   object-fit: cover !important;
@@ -382,23 +382,24 @@
   background: #f4f2f7 !important;
 }
 
-.dressup-applied {
+.zdress-applied {
   display: flex !important;
   flex-wrap: wrap !important;
   gap: 5px !important;
 }
 
-.dressup-pill {
+.zdress-pill {
   padding: 3px 8px !important;
   border-radius: 999px !important;
-  background: #f2eefe !important;
-  color: #6d28d9 !important;
+  border: 1px solid #e4e4e7 !important;
+  background: #fafafa !important;
+  color: #3f3f46 !important;
   font-size: 11px !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;
 }
 
 /* Save-to-collection control under a finished render. */
-.dressup-save {
+.zdress-save {
   display: flex !important;
   gap: 7px !important;
   align-items: center !important;
@@ -407,7 +408,7 @@
   border-top: 1px solid #efedf3 !important;
 }
 
-.dressup-select {
+.zdress-select {
   flex: 1 !important;
   min-width: 0 !important;
   padding: 7px 9px !important;
@@ -419,12 +420,12 @@
   font-size: 12px !important;
 }
 
-.dressup-save-btn {
+.zdress-save-btn {
   flex: none !important;
   padding: 7px 14px !important;
   border: 0 !important;
   border-radius: 8px !important;
-  background: #7c3aed !important;
+  background: #0a0a0a !important;
   color: #fff !important;
   font-family: inherit !important;
   font-size: 12px !important;
@@ -432,53 +433,53 @@
   cursor: pointer !important;
 }
 
-.dressup-save-btn:hover:not(:disabled) { background: #6d28d9 !important; }
-.dressup-save-btn:disabled { opacity: 0.6 !important; cursor: default !important; }
+.zdress-save-btn:hover:not(:disabled) { background: #262626 !important; }
+.zdress-save-btn:disabled { opacity: 0.6 !important; cursor: default !important; }
 
-.dressup-save-err {
+.zdress-save-err {
   flex-basis: 100% !important;
   margin: 6px 0 0 !important;
   font-size: 11px !important;
   color: #b4232a !important;
 }
 
-.dressup-notes {
+.zdress-notes {
   margin-top: 9px !important;
   font-size: 11px !important;
   line-height: 1.5 !important;
   color: #837d90 !important;
 }
 
-.dressup-error {
+.zdress-error {
   padding: 40px 28px !important;
   text-align: center !important;
 }
 
-.dressup-error-icon {
+.zdress-error-icon {
   font-size: 30px !important;
   margin-bottom: 8px !important;
 }
 
-.dressup-error h3 {
+.zdress-error h3 {
   margin: 0 0 6px !important;
   font-size: 16px !important;
   font-weight: 650 !important;
 }
 
-.dressup-error p {
+.zdress-error p {
   margin: 0 !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
   color: #5c5666 !important;
 }
 
-.dressup-hint {
+.zdress-hint {
   margin-top: 10px !important;
   font-size: 12px !important;
   color: #6b6577 !important;
 }
 
-.dressup-hint code {
+.zdress-hint code {
   padding: 1px 5px !important;
   border-radius: 4px !important;
   background: #f2f0f6 !important;

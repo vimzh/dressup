@@ -80,7 +80,7 @@ async function main() {
   --max N           longest edge, downscaled if larger (default: 4096)
   --quality N       JPEG quality (default: 92)
 
-Note: the DressUp server converts images automatically at request time.
+Note: the Zdress server converts images automatically at request time.
 This tool is only for converting files you already have.`);
     process.exit(inputs.length ? 0 : 1);
   }
