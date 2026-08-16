@@ -147,7 +147,19 @@ npm run dev:api
 
 Verify it at `http://localhost:3000/api/health`.
 
-### 3. Build and load the extension
+### 3. Fastest macOS install
+
+Download [`zdress-installer-macos.zip`](apps/web/public/downloads/zdress-installer-macos.zip), unzip it, and open `install-zdress.command`.
+
+Or paste this into Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vimzh/dressup/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command
+```
+
+The installer downloads and unpacks Zdress, opens `chrome://extensions`, reveals the extension folder, and copies its path. Stable Chrome still requires the final **Load unpacked** approval; Chrome no longer permits scripts to silently install an unpacked extension.
+
+### 4. Build and load the extension manually
 
 ```bash
 npm run build:extension
@@ -167,7 +179,7 @@ Firefox:
 
 Upload a clear, front-facing photo from the Zdress side panel, then open a supported retailer and choose **Try this look**.
 
-### 4. Run the landing page
+### 5. Run the landing page
 
 ```bash
 npm run dev:web

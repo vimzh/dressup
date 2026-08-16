@@ -1,4 +1,4 @@
-import { Flame, Globe } from "lucide-react";
+import { Download, Flame } from "lucide-react";
 import SmoothButton from "@/components/smoothui/smooth-button";
 import { Reveal } from "@/components/site/reveal";
 
@@ -18,12 +18,14 @@ export function Footer() {
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <SmoothButton
+                asChild
                 className="w-full sm:w-auto"
-                prefix={<Globe />}
                 size="lg"
                 variant="candy"
               >
-                Install for Chrome
+                <a download href="/downloads/zdress-installer-macos.zip">
+                  <Download /> Download Chrome installer
+                </a>
               </SmoothButton>
               <SmoothButton
                 className="w-full sm:w-auto"

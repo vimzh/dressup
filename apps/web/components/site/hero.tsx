@@ -1,14 +1,26 @@
 "use client";
 
-import { Bookmark, Flame, Globe, Layers, Store } from "lucide-react";
+import {
+  Bookmark,
+  Check,
+  Copy,
+  Download,
+  Flame,
+  Layers,
+  Store,
+  Terminal,
+} from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
+import { useState } from "react";
 import SmoothButton from "@/components/smoothui/smooth-button";
 import { SplitHeading } from "@/components/site/reveal";
 import { Shot } from "@/components/site/shot";
 import type { ResolvedShots } from "@/lib/shots-meta";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+const INSTALL_COMMAND =
+  "curl -fsSL https://raw.githubusercontent.com/vimzh/dressup/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command";
 
 const CROSS_SITE = [
   {
@@ -30,6 +42,18 @@ const CROSS_SITE = [
 
 export function Hero({ shots }: { shots: ResolvedShots }) {
   const reduced = useReducedMotion();
+  const [copyStatus, setCopyStatus] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
+
+  const copyInstallCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(INSTALL_COMMAND);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
 
   const rise = (delay: number) => ({
     animate: { filter: "blur(0px)", opacity: 1, y: 0 },
@@ -82,12 +106,14 @@ export function Hero({ shots }: { shots: ResolvedShots }) {
           {...rise(0.88)}
         >
           <SmoothButton
+            asChild
             className="w-full sm:w-auto"
-            prefix={<Globe />}
             size="lg"
             variant="candy"
           >
-            Install for Chrome
+            <a download href="/downloads/zdress-installer-macos.zip">
+              <Download /> Download Chrome installer
+            </a>
           </SmoothButton>
           <SmoothButton
             className="w-full sm:w-auto"
@@ -98,6 +124,42 @@ export function Hero({ shots }: { shots: ResolvedShots }) {
           >
             Install for Firefox
           </SmoothButton>
+        </motion.div>
+
+        <motion.div
+          className="mx-auto mt-5 max-w-2xl rounded-lg border border-white/10 bg-black/25 p-3 text-left"
+          {...rise(0.96)}
+        >
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+            <span className="flex items-center gap-2 font-mono text-[11px] text-white/55 uppercase tracking-[0.16em]">
+              <Terminal className="size-3.5 text-glow" /> Terminal install · macOS
+            </span>
+            <button
+              aria-live="polite"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2.5 font-mono text-[11px] text-white/55 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-glow"
+              onClick={copyInstallCommand}
+              type="button"
+            >
+              {copyStatus === "copied" ? (
+                <Check className="size-3.5" />
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+              {copyStatus === "copied"
+                ? "Copied"
+                : copyStatus === "error"
+                  ? "Copy failed"
+                  : "Copy"}
+            </button>
+          </div>
+          <code className="block overflow-x-auto rounded-md bg-black/40 px-3 py-3 font-mono text-[12px] text-white/70 leading-relaxed whitespace-nowrap">
+            {INSTALL_COMMAND}
+          </code>
+          <p className="px-1 pt-2 text-[12px] text-white/40 leading-relaxed">
+            Downloads and unpacks Zdress, opens Chrome Extensions, and copies
+            the folder path. Chrome still requires the final Load unpacked
+            approval.
+          </p>
         </motion.div>
 
         {/* The thing that makes it more than a widget: it isn't bound to one store. */}
