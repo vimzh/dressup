@@ -47,7 +47,20 @@
         "*://*.maxfashion.in/*",
         "*://*.libas.in/*",
         "*://*.pinterest.com/*",
-        "*://*.pinterest.co.uk/*"
+        "*://*.pinterest.co.uk/*",
+        "*://www.etsy.com/*",
+        "*://www.asos.com/*",
+        "*://*.hm.com/*",
+        "*://*.zalando.de/*",
+        "*://*.zalando.co.uk/*",
+        "*://*.zalando.fr/*",
+        "*://*.zalando.it/*",
+        "*://*.zalando.es/*",
+        "*://*.zalando.nl/*",
+        "*://*.zalando.pl/*",
+        "*://*.zalando.se/*",
+        "*://www.abercrombie.com/*",
+        "*://www.hollisterco.com/*"
       ],
       "js": [
         "sites.js",

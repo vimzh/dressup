@@ -340,6 +340,149 @@ const SITES = [
     link: (card) => card.getAttribute('href'),
     highRes: (url) => url,
   },
+
+  /*
+   * ── Global retailers ──────────────────────────────────────────────────────
+   *
+   * Everything below was probed on a live listing grid, and each `highRes`
+   * transform was checked by loading the rewritten URL and reading back
+   * naturalWidth — the measured result is quoted in each comment. Worth doing:
+   * two of these punish the obvious guess. Etsy's `il_1588xN` happily upscales
+   * past the master, and ASOS's Scene7 preset silently caps width until the
+   * whole query string is thrown away.
+   */
+
+  {
+    id: 'etsy',
+    label: 'Etsy',
+    // Etsy runs one host with locale path segments (/in-en/, /de-en/ …).
+    match: (h) => /(^|\.)etsy\.com$/.test(h),
+    // `v2-listing-card` is stable, but the sibling class on the same node is a
+    // build hash (`bff3e433559a99371`) — so walk out from the listing link
+    // instead, the way Flipkart does.
+    cards: () =>
+      uniq(
+        [...document.querySelectorAll('a[href*="/listing/"]')]
+          .filter((a) => a.querySelector('img[src*="etsystatic"]'))
+          .map((a) => a.closest('li') || a.parentElement)
+          .filter(Boolean)
+      ),
+    imageBox: (card) => card.querySelector('a[href*="/listing/"]') || card,
+    image: (card) => card.querySelector('img[src*="etsystatic"]'),
+    // The slug is truncated on long titles; the alt text carries it in full.
+    title: (card) => (card.querySelector('img[src*="etsystatic"]')?.getAttribute('alt') || '').trim(),
+    link: (card) => card.querySelector('a[href*="/listing/"]')?.getAttribute('href'),
+    /*
+     * Size is a filename token: il_300x300 -> il_fullxfull.
+     *
+     * Not `il_1588xN`, which looks like the bigger option and isn't: on a master
+     * measuring 1122x1122 it returns 1588x1588 of upscaled mush, while
+     * il_fullxfull returns the real 1122. Upscaled input is worse than small
+     * input for try-on, so ask for the master and let the server downscale.
+     */
+    highRes: (url) => url.replace(/il_(\d+x\d*|fullxfull)\./, 'il_fullxfull.'),
+  },
+
+  {
+    id: 'asos',
+    label: 'ASOS',
+    match: (h) => /(^|\.)asos\.com$/.test(h),
+    // Every class here is build-hashed (`productTile_U0clN`, `productLink_KM4PI`),
+    // so the /prd/ link is the anchor and the card is its <li>.
+    cards: () =>
+      uniq(
+        [...document.querySelectorAll('a[href*="/prd/"]')]
+          .filter((a) => a.querySelector('img'))
+          .map((a) => a.closest('li') || a.parentElement)
+          .filter(Boolean)
+      ),
+    imageBox: (card) => card.querySelector('a[href*="/prd/"]'),
+    image: (card) => card.querySelector('img[src*="asos-media"]'),
+    title: (card) => titleFromSlug(card.querySelector('a[href*="/prd/"]')?.getAttribute('href')),
+    /*
+     * Scene7, but the preset wins over the width parameter. Thumbnails ship as
+     * `?$n_480w$&wid=476&fit=constrain`, and merely raising `wid` is ignored
+     * while `$n_480w$` is still there. Dropping the query entirely and asking
+     * for width alone measured 1200x1531; the untouched original is only 313x400.
+     */
+    highRes: (url) => `${url.split('?')[0]}?wid=1200&fit=constrain`,
+  },
+
+  {
+    id: 'hm',
+    label: 'H&M',
+    // Storefront is www2.hm.com in most markets, hm.com in a few.
+    match: (h) => /(^|\.)hm\.com$/.test(h),
+    // Class names are pure build hashes (`a47867`, `f1acc4`); `tile-container`
+    // is the stable contract, with <article> as the structural fallback.
+    cards: () => {
+      const tiles = [...document.querySelectorAll('[data-testid="tile-container"]')];
+      if (tiles.length) return tiles;
+      return [...document.querySelectorAll('article')].filter((el) => el.querySelector('img[src*="image.hm.com"]'));
+    },
+    imageBox: (card) => card.querySelector('a') || card,
+    image: (card) => card.querySelector('img[src*="image.hm.com"]'),
+    /*
+     * H&M product URLs are `/en_us/productpage.1342531002.html` — an id and no
+     * slug, so titleFromSlug has nothing to work with. The alt text is the real
+     * title ("Workwear Jacket - Taupe/Dark gray/Dark brown").
+     */
+    title: (card) => (card.querySelector('img[src*="image.hm.com"]')?.getAttribute('alt') || '').trim(),
+    link: (card) => card.querySelector('a')?.getAttribute('href'),
+    // Grid ships a 16px LQIP placeholder (`?imwidth=16`). Measured: 1260 -> 1260x1890.
+    highRes: (url) => `${url.split('?')[0]}?imwidth=1260`,
+  },
+
+  {
+    id: 'zalando',
+    label: 'Zalando',
+    // Per-country hosts and an English mirror on each: zalando.de, en.zalando.de,
+    // zalando.co.uk, zalando.fr … all one storefront.
+    match: (h) => /(^|\.)zalando\.[a-z.]+$/.test(h),
+    // Hashed classes throughout (`_5Yd-hZ`, `voFjEy`), but the grid is a clean
+    // one-<article>-per-product list, so filter articles by the product CDN.
+    cards: () => [...document.querySelectorAll('article')].filter((el) => el.querySelector('img[src*="ztat.net"]')),
+    imageBox: (card) => card.querySelector('a') || card,
+    // ztat.net also serves site chrome as SVG (payment and carrier logos).
+    image: (card) => [...card.querySelectorAll('img[src*="ztat.net"]')].find((i) => !/\.svg($|\?)/i.test(i.src)),
+    /*
+     * The alt text is a generated visual description ("Black tracksuits with
+     * white piping details. Features include elastic cuffs…"), not a product
+     * name — it would read to the classifier as a garment description of the
+     * wrong shape. The slug is the real title.
+     */
+    title: (card) => titleFromSlug(card.querySelector('a')?.getAttribute('href')),
+    link: (card) => card.querySelector('a')?.getAttribute('href'),
+    // Measured: imwidth=1800 -> 1801x2600, which is the master.
+    highRes: (url) => `${url.split('?')[0]}?imwidth=1800`,
+  },
+
+  {
+    id: 'anf',
+    label: 'Abercrombie & Fitch',
+    /*
+     * One adapter, two brands: Abercrombie and Hollister run the same platform
+     * off sibling Scene7 hosts (img.abercrombie.com, img.hollisterco.com). Both
+     * were probed live and every selector below matched unchanged on each —
+     * same `data-testid` hooks, same `?wid=1200` transform.
+     */
+    match: (h) => /(^|\.)(abercrombie|hollisterco)\.com$/.test(h),
+    cards: () => [...document.querySelectorAll('[data-testid="catalog-product-card"]')],
+    imageBox: (card) => card.querySelector('[data-testid="catalog-product-card-image-link"]') || card.querySelector('a'),
+    image: (card) => card.querySelector('img[src*="/is/image/"]'),
+    // "Wool-Blend Sport Coat, Tan Herringbone view 1" — drop the view suffix.
+    title: (card) =>
+      (card.querySelector('img[src*="/is/image/"]')?.getAttribute('alt') || '')
+        .replace(/\s+view\s+\d+\s*$/i, '')
+        .trim(),
+    link: (card) => card.querySelector('a[href*="/p/"]')?.getAttribute('href'),
+    /*
+     * Scene7 named policies cap out below the master: product-medium is 600x750
+     * and product-large only 800x1000, while the source is 3204x3204. Asking for
+     * width directly measured 1200x1200.
+     */
+    highRes: (url) => `${url.split('?')[0]}?wid=1200`,
+  },
 ];
 
 function siteFor(hostname = location.hostname) {
