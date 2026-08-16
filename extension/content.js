@@ -314,14 +314,55 @@
         flashTick(card, `Up to ${MAX_ITEMS} pieces`);
         return;
       }
-      selection = [
-        ...selection,
-        { imageUrl: url, title: productInfo(card).title, site: site.label, productUrl: absUrl(site.link(card)) },
-      ];
+      const item = {
+        imageUrl: url,
+        title: productInfo(card).title,
+        site: site.label,
+        productUrl: absUrl(site.link(card)),
+      };
+      selection = [...selection, item];
+      await chrome.storage.local.set({ selection });
+      refreshCards();
+      labelSlot(item, card); // fills in the category, then flags any clash
+      return;
     }
     await chrome.storage.local.set({ selection });
     refreshCards();
   }
+
+  /**
+   * Screening is a round trip, so the tick lands immediately and the slot is
+   * filled in after. Two pieces competing for the same slot is the common
+   * mistake — picking two pairs of jeans — and it is worth saying so now rather
+   * than after a minute of rendering.
+   */
+  async function labelSlot(item, card) {
+    const res = await chrome.runtime
+      .sendMessage({ type: 'CLASSIFY', garmentImageUrl: item.imageUrl, productTitle: item.title })
+      .catch(() => null);
+    if (!res?.ok) return;
+
+    const { selection: current = [] } = await chrome.storage.local.get('selection');
+    const idx = current.findIndex((s) => s.imageUrl === item.imageUrl);
+    if (idx === -1) return; // unticked while we were asking
+
+    current[idx] = { ...current[idx], category: res.category, description: res.description };
+
+    const clash = current.find(
+      (s, i) => i !== idx && s.category && s.category === res.category
+    );
+    await chrome.storage.local.set({ selection: current });
+
+    if (clash) {
+      toast(`You already picked a ${slotName(res.category)} — “${clash.title}”.`, {
+        hint: 'Only the newest one will be worn. Untick one in the Zdress panel.',
+      });
+      flashTick(card, 'Same slot as another pick');
+    }
+  }
+
+  const slotName = (c) =>
+    ({ upper_body: 'top', lower_body: 'bottom', full_body: 'full-body piece', shoes: 'pair of shoes' }[c] || 'piece');
 
   function flashTick(card, msg) {
     const tick = card.querySelector('.zdress-tick');

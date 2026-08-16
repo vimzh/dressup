@@ -23,6 +23,7 @@ const ICONS = {
   refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
   trash: '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
   menu: '<path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
@@ -186,6 +187,8 @@ $('file').addEventListener('change', async () => {
 
 /* ------------------------------------------------------------ current fit */
 
+const SLOTS = { upper_body: 'Top', lower_body: 'Bottom', full_body: 'Full body', shoes: 'Shoes' };
+
 let lastSelection = [];
 
 function renderFit(selection = []) {
@@ -195,7 +198,35 @@ function renderFit(selection = []) {
   $('fitBody').hidden = !has;
   $('selCount').hidden = !has;
   $('selCount').textContent = selection.length;
-  $('strip').innerHTML = selection.map((s) => `<img src="${esc(s.imageUrl)}" alt="" title="${esc(s.title)}">`).join('');
+  // A slot claimed by more than one piece is the common mistake — two pairs of
+  // jeans, two shirts — and only the newest survives the render.
+  const counts = {};
+  selection.forEach((s) => { if (s.category) counts[s.category] = (counts[s.category] || 0) + 1; });
+  const lastPerSlot = {};
+  selection.forEach((s, i) => { if (s.category) lastPerSlot[s.category] = i; });
+
+  $('strip').innerHTML = selection
+    .map((s, i) => {
+      const clash = s.category && counts[s.category] > 1 && lastPerSlot[s.category] !== i;
+      return `<div class="piece${clash ? ' clash' : ''}" data-i="${i}">
+        <img src="${esc(s.imageUrl)}" alt="">
+        <div class="piece-meta">
+          <b>${esc(s.title || 'Item')}</b>
+          <span>${esc(s.site || '')}</span>
+        </div>
+        <span class="piece-slot">${s.category ? esc(SLOTS[s.category] || s.category) : '…'}</span>
+        <button class="piece-x" data-remove="${i}" title="Remove" aria-label="Remove">${icon('x', 13)}</button>
+      </div>`;
+    })
+    .join('');
+
+  const clashes = Object.entries(counts).filter(([, n]) => n > 1);
+  $('fitWarn').hidden = clashes.length === 0;
+  if (clashes.length) {
+    const which = clashes.map(([c, n]) => `${n} ${SLOTS[c] || c} pieces`).join(' and ');
+    $('fitWarn').innerHTML = `${icon('alert', 14)}<span>You picked ${which}. Only the newest of each will be worn — remove one to choose.</span>`;
+  }
+
   $('tryfitLabel').textContent = `Try this fit (${selection.length})`;
 }
 
@@ -205,6 +236,14 @@ chrome.storage.onChanged.addListener((c, area) => {
 });
 
 $('clearFit').addEventListener('click', () => chrome.storage.local.set({ selection: [] }));
+
+$('strip').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-remove]');
+  if (!btn) return;
+  const i = Number(btn.dataset.remove);
+  const { selection = [] } = await chrome.storage.local.get('selection');
+  await chrome.storage.local.set({ selection: selection.filter((_, n) => n !== i) });
+});
 
 /*
  * The fit is rendered here rather than on the page. A side panel keeps focus

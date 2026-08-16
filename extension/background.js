@@ -86,7 +86,26 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 });
 
+/** Screening only — tells the panel a garment's slot without spending a render. */
+async function classify({ garmentImageUrl, productTitle }) {
+  try {
+    const res = await fetch(`${API_BASE}/api/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ garmentImageUrl, productTitle }),
+    });
+    if (!res.ok) return { ok: false };
+    return { ok: true, ...(await res.json()) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'CLASSIFY') {
+    classify(msg).then(sendResponse);
+    return true;
+  }
   if (msg?.type === 'SAVE_LOOK') {
     saveLook(msg.payload).then(sendResponse);
     return true;

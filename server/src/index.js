@@ -152,6 +152,46 @@ app.post('/api/tryon', async (req, res) => {
 });
 
 /*
+ * Screening only — no render, so no YouCam units.
+ *
+ * The panel needs a garment's slot the moment it is ticked, so it can say "you
+ * already picked jeans" up front instead of letting the user wait through a
+ * render only to be told one piece was dropped. Results are cached by image URL
+ * because the same item is often ticked, unticked and re-ticked.
+ */
+const classifyCache = new Map();
+
+app.post('/api/classify', async (req, res) => {
+  const { garmentImageUrl, productTitle = '' } = req.body || {};
+  if (!garmentImageUrl) return res.status(400).json({ error: 'No garment image supplied.' });
+
+  if (classifyCache.has(garmentImageUrl)) return res.json(classifyCache.get(garmentImageUrl));
+
+  try {
+    const r = await fetch(garmentImageUrl);
+    if (!r.ok) throw new Error(`Could not download the product image (HTTP ${r.status}).`);
+    const { buffer, contentType } = await normalizeImage(Buffer.from(await r.arrayBuffer()));
+
+    const garment = await inspectGarment(toDataUrl(buffer, contentType), productTitle);
+    const out = {
+      isApparel: garment.isApparel,
+      category: garment.category,
+      description: garment.description,
+      reason: garment.reason,
+    };
+
+    // Bounded: a long browsing session shouldn't grow this without limit.
+    if (classifyCache.size > 500) classifyCache.clear();
+    classifyCache.set(garmentImageUrl, out);
+
+    log(`classify: ${String(productTitle).slice(0, 40)} -> ${out.category}`);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/*
  * Multi-garment outfits.
  *
  * YouCam's cloth task accepts exactly one `ref_file_id`, so an outfit can't be
