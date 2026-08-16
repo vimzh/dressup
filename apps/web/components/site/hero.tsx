@@ -6,13 +6,15 @@ import {
   Copy,
   Download,
   Flame,
+  Info,
   Layers,
   Store,
   Terminal,
+  X,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import SmoothButton from "@/components/smoothui/smooth-button";
 import { SplitHeading } from "@/components/site/reveal";
 import { Shot } from "@/components/site/shot";
@@ -21,6 +23,12 @@ import type { ResolvedShots } from "@/lib/shots-meta";
 const EASE = [0.16, 1, 0.3, 1] as const;
 const INSTALL_COMMAND =
   "curl -fsSL https://raw.githubusercontent.com/vimzh/dressup/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command";
+const INSTALL_STEPS = [
+  "Download the macOS installer and open the ZIP file.",
+  "Run install-zdress.command. It downloads and unpacks the extension for you.",
+  "In the Chrome Extensions page that opens, turn on Developer mode and choose Load unpacked.",
+  "Press Command-Shift-G, paste the folder path already copied by the installer, then choose Select.",
+];
 
 const CROSS_SITE = [
   {
@@ -42,6 +50,7 @@ const CROSS_SITE = [
 
 export function Hero({ shots }: { shots: ResolvedShots }) {
   const reduced = useReducedMotion();
+  const installDialogRef = useRef<HTMLDialogElement>(null);
   const [copyStatus, setCopyStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
@@ -105,16 +114,28 @@ export function Hero({ shots }: { shots: ResolvedShots }) {
           className="mt-11 flex flex-col items-center justify-center gap-3 sm:flex-row"
           {...rise(0.88)}
         >
-          <SmoothButton
-            asChild
-            className="w-full sm:w-auto"
-            size="lg"
-            variant="candy"
-          >
-            <a download href="/downloads/zdress-installer-macos.zip">
-              <Download /> Download Chrome installer
-            </a>
-          </SmoothButton>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <SmoothButton
+              asChild
+              className="flex-1 sm:flex-none"
+              size="lg"
+              variant="candy"
+            >
+              <a download href="/downloads/zdress-installer-macos.zip">
+                <Download /> Download Chrome installer
+              </a>
+            </SmoothButton>
+            <button
+              aria-haspopup="dialog"
+              aria-label="How to install Zdress"
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/65 transition-[background-color,color,border-color] hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-glow"
+              onClick={() => installDialogRef.current?.showModal()}
+              title="How to install"
+              type="button"
+            >
+              <Info className="size-4" />
+            </button>
+          </div>
           <SmoothButton
             className="w-full sm:w-auto"
             color="neutral"
@@ -161,6 +182,66 @@ export function Hero({ shots }: { shots: ResolvedShots }) {
             approval.
           </p>
         </motion.div>
+
+        <dialog
+          aria-labelledby="install-dialog-title"
+          className="m-auto w-[min(34rem,calc(100%_-_2rem))] rounded-xl border border-white/15 bg-[#111012] p-0 text-white shadow-2xl backdrop:bg-black/75"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              event.currentTarget.close();
+            }
+          }}
+          ref={installDialogRef}
+        >
+          <div className="p-6 sm:p-7">
+            <div className="flex items-start justify-between gap-5">
+              <div>
+                <p className="mb-2 font-mono text-[11px] text-glow uppercase tracking-[0.16em]">
+                  Local Chrome install
+                </p>
+                <h2
+                  className="display-section text-2xl text-white sm:text-3xl"
+                  id="install-dialog-title"
+                >
+                  Install Zdress in four steps
+                </h2>
+              </div>
+              <button
+                aria-label="Close installation instructions"
+                className="flex size-10 shrink-0 items-center justify-center rounded-md text-white/55 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-glow"
+                onClick={() => installDialogRef.current?.close()}
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <ol className="mt-6 space-y-4">
+              {INSTALL_STEPS.map((step, index) => (
+                <li className="flex gap-3" key={step}>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-glow/10 font-mono text-[11px] text-glow tabular-nums">
+                    {index + 1}
+                  </span>
+                  <p className="pt-0.5 text-[14px] text-white/65 leading-relaxed">
+                    {step}
+                  </p>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-6 rounded-lg border border-white/10 bg-black/30 p-4">
+              <p className="text-[12px] text-white/45">Unpacked extension location</p>
+              <code className="mt-1.5 block overflow-x-auto font-mono text-[12px] text-white/75 whitespace-nowrap">
+                ~/Library/Application Support/Zdress/extension
+              </code>
+            </div>
+
+            <p className="mt-5 border-white/10 border-t pt-5 text-[13px] text-white/50 leading-relaxed">
+              Chrome requires this final approval for local extensions. A
+              one-click Chrome Web Store version is coming soon.
+            </p>
+          </div>
+        </dialog>
 
         {/* The thing that makes it more than a widget: it isn't bound to one store. */}
         <motion.div
