@@ -19,19 +19,20 @@ Most virtual try-on demos ask shoppers to leave the store, upload a photo, and p
 
 Adapters cover 16 fashion retailers plus Pinterest, including Myntra, AJIO, Flipkart, Amazon, Nykaa Fashion, ASOS, H&M, Zalando, Abercrombie and Hollister.
 
-## Product proof
+## Product film
 
-### Browse, try on, and build a fit
+<a href="docs/video/zdress-product-film.mp4">
+  <img src="docs/video/zdress-product-film.gif" alt="Animated Zdress product film showing in-store virtual try-on, cross-store outfits, AI fashion advice, and saved source links">
+</a>
 
-The extension stays inside the retailer page: card-level controls preserve the shopping context, independent renders run in parallel, and selections from different stores become one ordered outfit.
+<p align="center"><sub>17-second product film · click to open the full-resolution MP4</sub></p>
 
-<img src="docs/readme/zdress-product-flow.jpg" alt="Zdress product flow showing in-page controls, parallel try-ons, cross-store selection, and a composed outfit">
+### The same flow on every supported site
 
-### Understand the result and keep the trail
-
-The AI expert reads the generated try-on—not the catalogue model—then explains fit, proportions, and colour pairings. Saved collections keep the rendered image and every source product link after YouCam's temporary URL expires.
-
-<img src="docs/readme/zdress-decision-layer.jpg" alt="Zdress decision layer showing AI fashion advice, saved collections, retained source links, upload-once reuse, and source-faithful garments">
+1. **Browse:** a retailer adapter finds stable product cards without taking over the page.
+2. **Try on:** one click renders a card in place; selected pieces can also become one cross-store outfit.
+3. **Ask:** the AI expert analyzes the generated try-on and accepts follow-up questions.
+4. **Save:** the rendered image and original product links remain available after temporary result URLs expire.
 
 ## How it works
 
