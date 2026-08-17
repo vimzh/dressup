@@ -11,11 +11,56 @@
  * failing the request later.
  */
 
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import sharp from 'sharp';
 
 const PASSTHROUGH = new Set(['jpeg', 'jpg', 'png']);
 const MAX_EDGE = 4096;
 const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+const badUrl = (message) => Object.assign(new Error(message), { status: 400 });
+
+function isPrivateAddress(address) {
+  const normalized = address.toLowerCase();
+  if (normalized === '::' || normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || /^(?:fe8|fe9|fea|feb)/.test(normalized)) return true;
+  if (normalized.startsWith('::ffff:')) return isPrivateAddress(normalized.slice(7));
+  if (isIP(normalized) !== 4) return false;
+
+  const [a, b] = normalized.split('.').map(Number);
+  return (
+    a === 0 || a === 10 || a === 127 || a >= 224 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19))
+  );
+}
+
+/** Rejects image URLs that could make the public API reach an internal service. */
+export async function validateRemoteUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw badUrl('That image URL is not valid.');
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) throw badUrl('Image URLs must use HTTPS.');
+  if (url.hostname === 'localhost' || url.hostname.endsWith('.local')) throw badUrl('Private network image URLs are not allowed.');
+
+  const hostname = url.hostname.replace(/^\[|\]$/g, '');
+  let addresses;
+  try {
+    addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true, verbatim: true });
+  } catch {
+    throw badUrl('That image host could not be found.');
+  }
+  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+    throw badUrl('Private network image URLs are not allowed.');
+  }
+  return url;
+}
 
 /**
  * @param {Buffer} buffer raw downloaded image
@@ -59,14 +104,28 @@ export async function normalizeImage(buffer) {
  * which tells a user nothing about what went wrong.
  */
 export async function fetchImage(url, label = 'the product image') {
-  let res;
-  try {
-    res = await fetch(url);
-  } catch {
-    throw new Error(`Could not reach ${label}. The site may be blocking it, or you may be offline.`);
+  let current = await validateRemoteUrl(url);
+  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    let res;
+    try {
+      res = await fetch(current, { redirect: 'manual' });
+    } catch {
+      throw new Error(`Could not reach ${label}. The site may be blocking it, or you may be offline.`);
+    }
+    if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+      if (redirects === MAX_REDIRECTS) throw new Error(`Could not download ${label} (too many redirects).`);
+      current = await validateRemoteUrl(new URL(res.headers.get('location'), current).href);
+      continue;
+    }
+    if (!res.ok) throw new Error(`Could not download ${label} (HTTP ${res.status}).`);
+
+    const declared = Number(res.headers.get('content-length') || 0);
+    if (declared > MAX_BYTES) throw new Error(`${label} is over 10MB.`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > MAX_BYTES) throw new Error(`${label} is over 10MB.`);
+    return buffer;
   }
-  if (!res.ok) throw new Error(`Could not download ${label} (HTTP ${res.status}).`);
-  return Buffer.from(await res.arrayBuffer());
+  throw new Error(`Could not download ${label}.`);
 }
 
 /** Builds the data URL the vision model consumes. */

@@ -2,6 +2,8 @@
   "permissions": [
     "storage",
     "unlimitedStorage",
+    "scripting",
+    "tabs",
     "sidePanel"
   ],
   "background": {

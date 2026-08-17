@@ -14,7 +14,7 @@ fi
 
 install_root="$HOME/Library/Application Support/Zdress"
 install_dir="$install_root/extension"
-archive_url="https://raw.githubusercontent.com/vimzh/dressup/main/apps/web/public/downloads/zdress-chrome.zip"
+archive_url="https://raw.githubusercontent.com/vimzh/zdress/main/apps/web/public/downloads/zdress-chrome.zip"
 temp_dir="$(mktemp -d)"
 trap 'rm -rf -- "$temp_dir"' EXIT
 
@@ -35,9 +35,11 @@ open -a "Google Chrome" "chrome://extensions/"
 
 echo
 echo "Zdress is downloaded and unpacked. The folder path is on your clipboard."
+echo "No Node.js install, API keys, or local server are required."
 echo "Chrome requires one final approval:"
 echo "  1. Turn on Developer mode."
 echo "  2. Click Load unpacked."
 echo "  3. Press Command-Shift-G, paste the copied path, and choose Select."
+echo "  4. Pin Zdress, upload a photo, and open a supported fashion retailer."
 echo
 read -r -p "Press Return to close this window."

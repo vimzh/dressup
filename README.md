@@ -19,6 +19,23 @@ Most virtual try-on demos ask shoppers to leave the store, upload a photo, and p
 
 Adapters cover 16 fashion retailers plus Pinterest, including Myntra, AJIO, Flipkart, Amazon, Nykaa Fashion, ASOS, H&M, Zalando, Abercrombie and Hollister.
 
+## Try the working extension in two minutes
+
+Judges and testers do **not** need Node.js, API keys, or a local server. The extension uses the hosted Zdress API at [`zdress-api.vercel.app`](https://zdress-api.vercel.app), while YouCam and OpenAI credentials remain on the server.
+
+1. Download [`zdress-installer-macos.zip`](apps/web/public/downloads/zdress-installer-macos.zip), unzip it, and open `install-zdress.command`.
+2. In the Chrome page that opens, enable **Developer mode** and choose **Load unpacked**.
+3. Press **Command-Shift-G**, paste the folder path already copied by the installer, and choose **Select**.
+4. Pin Zdress, upload one clear front-facing photo, visit a supported retailer, and choose **Try this look** on a product card.
+
+Or copy this one command into Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vimzh/zdress/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command
+```
+
+Chrome requires the final **Load unpacked** approval and does not permit a script to bypass it. Source and releases live in the [Zdress GitHub repository](https://github.com/vimzh/zdress).
+
 ## Product film
 
 <a href="docs/video/zdress-product-film.mp4">
@@ -38,21 +55,25 @@ Adapters cover 16 fashion retailers plus Pinterest, including Myntra, AJIO, Flip
 
 ## How it works
 
-<img src="docs/graphs/zdress-architecture.svg" alt="Zdress extension and local API architecture">
+<img src="docs/graphs/zdress-architecture.svg" alt="Zdress extension, hosted API, AI services, and saved library architecture">
 
 1. A site adapter finds stable product cards, images, titles, and links.
 2. The content script mounts try-on and outfit-selection controls without taking over the page.
-3. The extension service worker sends the person and garment context to the local API.
+3. The extension service worker sends the person and garment context to the hosted API.
 4. OpenAI vision checks the photo, rejects unusable inputs, and determines the garment category.
 5. YouCam Apparel Virtual Try-On renders one garment at a time.
 6. The result returns to the original card or side panel, where it can be reverted, discussed, or saved.
-7. Saved renders and product references are written to a local library rather than left on expiring API URLs.
+7. Saved renders and product references are written to a private, client-isolated Blob library rather than left on expiring API URLs.
 
 ## What makes the implementation different
 
 ### Retailer-aware, not retailer-shaped
 
 All site-specific logic lives in `apps/extension/shared/sites.js`. The main content script only knows the common adapter contract. Selectors prefer product structure, CDN patterns, and URL slugs over build-hashed CSS classes that change on retailer deploys.
+
+Some adapters cover more than one storefront. Max Fashion and Lifestyle run on the same Landmark Group platform, as Abercrombie and Hollister do on theirs, so each pair is one set of selectors rather than two.
+
+One adapter covers no storefront in particular. Shopify has no domain list a manifest could carry, so the generic Shopify adapter matches on page structure instead — `/cdn/shop/` images wrapped in `/products/` links — and is reached by consent rather than by declaration: the side panel asks for a single origin, and the background script injects there and on later visits. Hand-written adapters are matched first, so Libas keeps its own entry on a site the generic one would also claim.
 
 ### One photo, many decisions
 
@@ -68,7 +89,7 @@ A worn outfit can be rendered directly. A flat-lay or moodboard is different: Zd
 
 ### Secrets stay outside the extension
 
-YouCam and OpenAI keys exist only in the local Express API. The browser extension talks to `localhost:3000`; no API secret is shipped in an unpacked extension where it could be extracted.
+YouCam and OpenAI keys exist only in the Vercel-hosted Express API. No API secret is shipped in the unpacked extension where it could be extracted. A random extension-local client ID separates each tester's saved library; it is isolation for this hackathon demo, not user authentication.
 
 ## Repository structure
 
@@ -98,43 +119,37 @@ Each deployable unit keeps its own package manifest and lockfile. The root packa
 | Browser integration | Manifest V3, WebExtensions APIs | Site adapters, in-page controls, side panel, cross-site selection |
 | Rendering API | YouCam Apparel Virtual Try-On | Single-garment renders composed into complete outfits |
 | Vision and styling | OpenAI SDK | Photo validation, garment screening, collage analysis, expert opinion |
-| Local backend | Node.js, Express, Sharp | Secret boundary, normalization, orchestration, durable image storage |
+| Hosted backend | Vercel Functions, Node.js, Express, Sharp | Secret boundary, normalization, and orchestration |
+| Saved library | Private Vercel Blob | Durable renders and product references per extension client |
 | Landing page | Next.js, React, Tailwind CSS, Motion | Judge-facing demo, product screenshots, technical story |
 
-## Run it locally
+## Developer setup
 
 ### Prerequisites
 
 - Node.js 20 or newer
 - Chrome or Firefox
-- A YouCam API key
-- An OpenAI API key
+- A YouCam API key and OpenAI API key only when running the API locally
 
 ### 1. Set up
 
 ```bash
-git clone https://github.com/vimzh/dressup.git
-cd dressup
+git clone https://github.com/vimzh/zdress.git
+cd zdress
 npm run setup
 ```
 
-`setup` installs both apps, creates `apps/api/.env` from the example, and builds
-the extension for Chrome and Firefox. It is safe to re-run — every step is a
-no-op once done. The extension build uses Node's standard library only and has
-no install step of its own.
+`setup` installs the web and API dependencies, creates `apps/api/.env` from the example, and builds the Chrome and Firefox extension targets. The built extension uses the hosted API immediately.
 
-### 2. Add your keys and start
+### 2. Run the project locally
 
-Put `YOUCAM_API_KEY` and `OPENAI_API_KEY` into `apps/api/.env`, then:
+The landing page needs no keys:
 
 ```bash
-npm run dev
+npm run dev:web
 ```
 
-That runs the API on **:3000** and the landing page on **:3001** under a single
-Ctrl-C. Port 3000 is not configurable: the extension ships
-`API_BASE = 'http://localhost:3000'`, so `dev` refuses to start rather than move
-the API somewhere the extension will never look.
+To work on the API itself, put `YOUCAM_API_KEY` and `OPENAI_API_KEY` in `apps/api/.env`, then run `npm run dev:api`. The production extension continues to target the hosted API unless its `API` constant is changed for local development.
 
 Stuck? `npm run doctor` checks Node, installs, keys, both extension builds and
 the live API in one pass, and prints the fix for whatever it finds. It never
@@ -144,19 +159,7 @@ prints key values, only whether they are set.
 npm run doctor
 ```
 
-### 3. Fastest macOS install
-
-Download [`zdress-installer-macos.zip`](apps/web/public/downloads/zdress-installer-macos.zip), unzip it, and open `install-zdress.command`.
-
-Or paste this into Terminal:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/vimzh/dressup/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command
-```
-
-The installer downloads and unpacks Zdress, opens `chrome://extensions`, reveals the extension folder, and copies its path. Stable Chrome still requires the final **Load unpacked** approval; Chrome no longer permits scripts to silently install an unpacked extension.
-
-### 4. Build and load the extension manually
+### 3. Build and load the extension manually
 
 ```bash
 npm run build:extension
@@ -176,20 +179,12 @@ Firefox:
 
 Upload a clear, front-facing photo from the Zdress side panel, then open a supported retailer and choose **Try this look**.
 
-### 5. Run the landing page
-
-`npm run dev` already serves it on `http://localhost:3001`. To run it alone:
-
-```bash
-npm run dev:web
-```
-
 ## Useful commands
 
 ```bash
 npm run setup            # install both apps, seed .env, build the extension
 npm run doctor           # diagnose Node, installs, keys, dist/, live API
-npm run dev              # API :3000 + web :3001, one Ctrl-C for both
+npm run dev              # local API :3000 + web :3001, one Ctrl-C for both
 npm run dev:api          # local Express API with watch mode
 npm run dev:web          # Next.js development server alone
 npm run build            # extension bundles + production web build
@@ -201,8 +196,10 @@ npm run package          # distributable Chrome and Firefox archives
 
 ## Current hackathon boundaries
 
-- The API and saved library run locally; this is not a hosted multi-user service.
+- The hosted API is a hackathon demo service using project-owned API quotas, not a production multi-user service.
+- Saved libraries are isolated by an extension-local random ID, not an account or login. Clearing extension data loses that identifier.
 - Retailer DOM changes can require an adapter update.
+- The generic Shopify adapter covers standard storefronts only. Headless Shopify sites route products off `/products/` — SNITCH uses `/…/buy` — and still need their own adapter.
 - Rendering latency and usage depend on the external YouCam API and the number of selected garments.
 - Firefox cannot always open its sidebar programmatically after a message crosses extension contexts; the result is still saved for the next manual sidebar open.
 

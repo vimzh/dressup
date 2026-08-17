@@ -79,8 +79,8 @@ if (built !== 0) {
 // ---------------------------------------------------------------- next
 
 console.log(`\n${paint('bold', 'Next:')}`);
-note('1. Put your keys in apps/api/.env');
-note('2. npm run dev            api on :3000, web on :3001');
-note('3. npm run doctor         check everything is wired up');
-note('4. chrome://extensions → Developer mode → Load unpacked → apps/extension/dist/chrome');
+note('1. chrome://extensions → Developer mode → Load unpacked → apps/extension/dist/chrome');
+note('2. The extension uses the hosted API; no local keys or server are required.');
+note('3. npm run dev:web        landing page on :3001');
+note('4. For API work: add keys to apps/api/.env, then npm run dev:api');
 console.log();

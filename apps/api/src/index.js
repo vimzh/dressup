@@ -22,7 +22,11 @@ import { dedupe, gateStats } from './limiter.js';
 import * as stylist from './stylist.js';
 
 const app = express();
-const upload = multer({ limits: { fileSize: MAX_UPLOAD_BYTES } });
+// Vercel Functions reject request bodies above 4.5 MB before Express sees them.
+// The extension resizes photos before upload, and this lower limit keeps the
+// server error aligned with the platform boundary.
+const personUploadLimit = process.env.VERCEL ? 4 * 1024 * 1024 : MAX_UPLOAD_BYTES;
+const upload = multer({ limits: { fileSize: personUploadLimit } });
 
 /*
  * CORS is scoped to the extension, not opened to the web.
@@ -52,6 +56,19 @@ app.get('/api/health', (_req, res) => {
     openai: gateStats(),
   });
 });
+
+app.get('/', (_req, res) => {
+  res.json({ name: 'Zdress API', ok: true });
+});
+
+/** A random extension-local id keeps each tester's saved library separate. */
+function clientId(req) {
+  const value = String(req.get('x-zdress-client-id') || '');
+  if (!/^[a-f0-9-]{20,64}$/i.test(value)) {
+    throw new library.BadRequest('The extension needs a valid client id. Reinstall Zdress and try again.');
+  }
+  return value;
+}
 
 /**
  * Uploads the user's photo once and returns a reusable file_id.
@@ -223,7 +240,7 @@ app.post('/api/tryon', async (req, res) => {
     res.json({ resultUrl, garment });
   } catch (err) {
     log('tryon failed:', err.message);
-    res.status(500).json({ error: err.message, code: 'TRYON_FAILED' });
+    res.status(err?.status || 500).json({ error: err.message, code: 'TRYON_FAILED' });
   }
 });
 
@@ -269,7 +286,7 @@ app.post('/api/classify', async (req, res) => {
     log(`classify: ${String(productTitle).slice(0, 40)} -> ${out.category}`);
     res.json(out);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err?.status || 500).json({ error: err.message });
   }
 });
 
@@ -424,7 +441,7 @@ app.post('/api/outfit', async (req, res) => {
     });
   } catch (err) {
     log('outfit failed:', err.message);
-    res.status(500).json({ error: err.message, code: 'TRYON_FAILED' });
+    res.status(err?.status || 500).json({ error: err.message, code: 'TRYON_FAILED' });
   }
 });
 
@@ -445,9 +462,9 @@ app.post('/api/outfit', async (req, res) => {
 const opinionCache = new Map();
 
 /** Resolves whatever the caller pointed at into image bytes plus its context. */
-async function adviceSubject({ lookId, resultUrl, context = {} }) {
+async function adviceSubject({ lookId, resultUrl, context = {}, client }) {
   if (lookId) {
-    const { look, image } = await library.getLookImage(lookId);
+    const { look, image } = await library.getLookImage(client, lookId);
     return {
       key: `look:${lookId}`,
       dataUrl: toDataUrl(image, 'image/jpeg'),
@@ -476,7 +493,7 @@ app.post('/api/advice', async (req, res) => {
   const { lookId, resultUrl, context, messages = [], opinion = null } = req.body || {};
 
   try {
-    const subject = await adviceSubject({ lookId, resultUrl, context });
+    const subject = await adviceSubject({ lookId, resultUrl, context, client: lookId ? clientId(req) : null });
 
     // A follow-up question. Not cached — the whole point is that it's new.
     if (Array.isArray(messages) && messages.length) {
@@ -504,7 +521,14 @@ app.post('/api/advice', async (req, res) => {
 
 /* ------------------------------------------------------- saved looks library */
 
-app.use('/looks', express.static(library.IMAGES_DIR, { maxAge: '1h' }));
+app.get('/looks/:client/:file', async (req, res) => {
+  try {
+    const image = await library.getImage(req.params.client, req.params.file);
+    res.set('Cache-Control', 'private, max-age=3600').type('jpeg').send(image);
+  } catch (err) {
+    res.status(err?.status || 404).json({ error: err.message });
+  }
+});
 
 const wrap = (fn) => async (req, res) => {
   try {
@@ -517,18 +541,18 @@ const wrap = (fn) => async (req, res) => {
   }
 };
 
-app.get('/api/library', wrap(() => library.listAll()));
-app.post('/api/collections', wrap((req) => library.createCollection(req.body?.name)));
-app.patch('/api/collections/:id', wrap((req) => library.renameCollection(req.params.id, req.body?.name)));
-app.delete('/api/collections/:id', wrap((req) => library.deleteCollection(req.params.id)));
+app.get('/api/library', wrap((req) => library.listAll(clientId(req))));
+app.post('/api/collections', wrap((req) => library.createCollection(clientId(req), req.body?.name)));
+app.patch('/api/collections/:id', wrap((req) => library.renameCollection(clientId(req), req.params.id, req.body?.name)));
+app.delete('/api/collections/:id', wrap((req) => library.deleteCollection(clientId(req), req.params.id)));
 
 app.post('/api/looks', wrap(async (req) => {
-  const look = await library.saveLook(req.body || {});
+  const look = await library.saveLook(clientId(req), req.body || {});
   log(`saved look: ${look.title.slice(0, 50)}`);
   return look;
 }));
-app.patch('/api/looks/:id', wrap((req) => library.moveLook(req.params.id, req.body?.collectionId)));
-app.delete('/api/looks/:id', wrap((req) => library.deleteLook(req.params.id)));
+app.patch('/api/looks/:id', wrap((req) => library.moveLook(clientId(req), req.params.id, req.body?.collectionId)));
+app.delete('/api/looks/:id', wrap((req) => library.deleteLook(clientId(req), req.params.id)));
 
 /*
  * Everything the extension calls parses the reply as JSON, so every failure has
@@ -541,7 +565,8 @@ app.use('/api', (_req, res) => {
 
 app.use((err, _req, res, _next) => {
   if (err?.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).json({ error: 'That photo is over 10MB. Try a smaller one.', code: 'TOO_LARGE' });
+    const limit = Math.floor(personUploadLimit / 1024 / 1024);
+    return res.status(413).json({ error: `That photo is over ${limit}MB. Try a smaller one.`, code: 'TOO_LARGE' });
   }
   // A malformed body is the caller's mistake, not a server fault, and the raw
   // parser message ("Unexpected token 'n'") means nothing to anyone.
@@ -552,9 +577,13 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err?.message || 'Something went wrong.', code: 'SERVER_ERROR' });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  log(`Zdress server on http://localhost:${port}`);
-  if (!process.env.YOUCAM_API_KEY) log('WARNING: YOUCAM_API_KEY is not set');
-  if (!process.env.OPENAI_API_KEY) log('WARNING: OPENAI_API_KEY is not set');
-});
+if (!process.env.VERCEL) {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    log(`Zdress server on http://localhost:${port}`);
+    if (!process.env.YOUCAM_API_KEY) log('WARNING: YOUCAM_API_KEY is not set');
+    if (!process.env.OPENAI_API_KEY) log('WARNING: OPENAI_API_KEY is not set');
+  });
+}
+
+export default app;

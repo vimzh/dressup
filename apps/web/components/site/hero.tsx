@@ -22,7 +22,7 @@ import type { ResolvedShots } from "@/lib/shots-meta";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const INSTALL_COMMAND =
-  "curl -fsSL https://raw.githubusercontent.com/vimzh/dressup/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command";
+  "curl -fsSL https://raw.githubusercontent.com/vimzh/zdress/main/apps/web/public/downloads/install-zdress.command -o /tmp/install-zdress.command && bash /tmp/install-zdress.command";
 const INSTALL_STEPS = [
   "Download the macOS installer and open the ZIP file.",
   "Run install-zdress.command. It downloads and unpacks the extension for you.",

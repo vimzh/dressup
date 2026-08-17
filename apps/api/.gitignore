@@ -1,1 +1,4 @@
 data/
+.vercel
+.env
+.env.local

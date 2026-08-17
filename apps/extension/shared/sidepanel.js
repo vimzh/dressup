@@ -2,17 +2,26 @@
  * Side panel: photo setup and the current fit on one tab, the saved-looks
  * library on the other.
  *
- * Collections and looks live on the local server rather than in extension
- * storage, because YouCam's result URLs expire after two hours — a saved link
- * would be a dead image by the next day, so the render itself has to be kept.
- * The cost is that the library needs the server running; that's stated plainly
- * rather than left to render as broken thumbnails.
+ * Collections and looks live in the hosted API rather than extension storage,
+ * because YouCam's result URLs expire after two hours. The API stores the
+ * rendered image and source links in a library isolated by extension client id.
  */
 
 // Chrome puts the promise-based extension APIs on `chrome`, Firefox on `browser`.
 globalThis.browser ??= globalThis.chrome;
 
-const API = 'http://localhost:3000';
+const API = 'https://zdress-api.vercel.app';
+
+const clientIdPromise = browser.storage.local.get('clientId').then(async ({ clientId }) => {
+  if (clientId) return clientId;
+  const created = crypto.randomUUID();
+  await browser.storage.local.set({ clientId: created });
+  return created;
+});
+
+async function apiHeaders(headers = {}) {
+  return { ...headers, 'X-Zdress-Client-Id': await clientIdPromise };
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -154,24 +163,45 @@ $('removeYes').addEventListener('click', async () => {
   setStatus($('photoStatus'), 'Photo removed.', '');
 });
 
+/** Keeps photo uploads below Vercel's 4.5 MB function payload limit. */
+async function preparePhoto(file) {
+  const image = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+  canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close();
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  if (!blob) throw new Error('Could not prepare that photo. Try a JPG or PNG.');
+  return new File([blob], 'zdress-photo.jpg', { type: 'image/jpeg' });
+}
+
 $('file').addEventListener('change', async () => {
   const file = $('file').files?.[0];
   if (!file) return;
-
-  const dataUrl = await new Promise((r) => {
-    const fr = new FileReader();
-    fr.onload = () => r(fr.result);
-    fr.readAsDataURL(file);
-  });
-  showPhoto(dataUrl);
 
   setStatus($('photoStatus'), 'Uploading…');
   $('replace').disabled = true;
 
   try {
+    const prepared = await preparePhoto(file);
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Could not read that photo.'));
+      reader.readAsDataURL(prepared);
+    });
+    showPhoto(dataUrl);
+
     const form = new FormData();
-    form.append('photo', file);
-    const res = await fetch(`${API}/api/person`, { method: 'POST', body: form });
+    form.append('photo', prepared);
+    const res = await fetch(`${API}/api/person`, {
+      method: 'POST',
+      headers: await apiHeaders(),
+      body: form,
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Upload failed (HTTP ${res.status}).`);
 
@@ -604,7 +634,10 @@ browser.storage.onChanged.addListener((c, area) => {
  */
 async function api(path, options, failureMessage) {
   try {
-    const res = await fetch(`${API}${path}`, options);
+    const res = await fetch(`${API}${path}`, {
+      ...options,
+      headers: await apiHeaders(options?.headers || {}),
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `HTTP ${res.status}`);
@@ -627,7 +660,7 @@ async function loadLibrary() {
   closeMenu();
   $('collConfirm').hidden = true;
   try {
-    const res = await fetch(`${API}/api/library`);
+    const res = await fetch(`${API}/api/library`, { headers: await apiHeaders() });
     // Without this an error body parses perfectly well and becomes `library`,
     // renderLibrary then throws on the arrays it doesn't have, and the catch
     // below blames a server that in fact answered.
@@ -644,7 +677,7 @@ async function loadLibrary() {
     $('lookCount').hidden = true;
     $('looksEmpty').hidden = false;
     $('looksEmpty').innerHTML =
-      `${icon('plug', 20)}<p>Can’t reach the Zdress server, so saved looks aren’t available. Start it with <strong>npm run dev:api</strong> from the repository root.</p>`;
+      `${icon('plug', 20)}<p>Can’t reach Zdress right now. Check your connection and try again.</p>`;
   }
 }
 
@@ -1012,3 +1045,114 @@ window.addEventListener('resize', closeMenu);
 browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === 'LOOK_SAVED' && !$('paneSaved').hidden) loadLibrary();
 });
+
+/* ----------------------------------------------------------- opt-in sites */
+
+/*
+ * sites.js carries a generic Shopify adapter, but a content script only runs
+ * where the manifest lists it and there is no list of Shopify domains to put
+ * there. So the panel offers the reach one origin at a time: the user grants a
+ * site, and background.js injects into it and re-injects on later visits.
+ *
+ * The grant has to be asked for from here. `permissions.request` needs a user
+ * gesture on an extension page, which the background worker doesn't have.
+ */
+
+/** Match patterns from the manifest, so declared retailers don't get offered. */
+function patternToRegExp(pattern) {
+  const m = /^(\*|https?):\/\/(\*|\*\.[^/*]+|[^/*]+)(\/.*)$/.exec(pattern);
+  if (!m) return null;
+  const [, scheme, host, path] = m;
+  const esc = (s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const hostRe =
+    host === '*' ? '[^/]+' : host.startsWith('*.') ? `(?:[^/]+\\.)?${esc(host.slice(2))}` : esc(host);
+  return new RegExp(`^${scheme === '*' ? 'https?' : scheme}://${hostRe}${esc(path).replace(/\*/g, '.*')}$`);
+}
+
+const DECLARED = (browser.runtime.getManifest().content_scripts?.[0]?.matches ?? [])
+  .map(patternToRegExp)
+  .filter(Boolean);
+
+function originPattern(url) {
+  try {
+    const u = new URL(url);
+    return /^https?:$/.test(u.protocol) ? `${u.origin}/*` : null;
+  } catch {
+    return null;
+  }
+}
+
+/*
+ * Read once when the banner is painted rather than inside the click handler:
+ * awaiting a tabs query first would spend the user gesture that
+ * `permissions.request` insists on, and Firefox rejects the call without one.
+ */
+let pending = null;
+
+async function refreshEnable() {
+  const box = $('enableSite');
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const url = tab?.url || '';
+  const origin = originPattern(url);
+
+  const offer =
+    !!origin && !DECLARED.some((re) => re.test(url)) && !(await browser.permissions.contains({ origins: [origin] }));
+
+  pending = offer ? { origin, tabId: tab.id, url } : null;
+  box.hidden = !offer;
+  if (!offer) return;
+
+  $('enableHost').textContent = new URL(url).hostname.replace(/^www\./, '');
+  $('enableMsg').textContent =
+    'Zdress isn’t running here. Turn it on for this site — it works on any Shopify store.';
+  $('enableBtn').hidden = false;
+  $('enableBtn').disabled = false;
+  $('enableBtn').textContent = 'Enable on this site';
+}
+
+$('enableBtn').addEventListener('click', () => {
+  if (!pending) return;
+  const { origin, tabId, url } = pending;
+  const btn = $('enableBtn');
+
+  // First statement in the handler, so the user gesture is still live.
+  browser.permissions
+    .request({ origins: [origin] })
+    .then(async (granted) => {
+      if (!granted) {
+        $('enableMsg').textContent = 'Zdress can’t run here without permission for this site.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Starting…';
+      const res = await browser.runtime.sendMessage({ type: 'ENABLE_SITE', tabId, url });
+
+      if (!res?.ok) {
+        $('enableMsg').textContent = res?.error || 'Could not start Zdress on this page.';
+        btn.disabled = false;
+        btn.textContent = 'Try again';
+        return;
+      }
+      if (!res.matched) {
+        // Granted and injected, but no adapter claimed the page — say so rather
+        // than leave the user watching a grid that will never sprout buttons.
+        $('enableMsg').textContent =
+          'Zdress is on for this site, but it isn’t a Shopify storefront — no try-on buttons here.';
+        btn.hidden = true;
+        return;
+      }
+      $('enableMsg').textContent = 'Zdress is on. Try-on buttons should appear on the product grid.';
+      btn.hidden = true;
+    })
+    .catch(() => {
+      $('enableMsg').textContent = 'Could not ask for permission for this site.';
+    });
+});
+
+browser.tabs.onActivated.addListener(() => refreshEnable());
+browser.tabs.onUpdated.addListener((_id, info) => {
+  if (info.status === 'complete') refreshEnable();
+});
+
+refreshEnable();

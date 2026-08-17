@@ -11,7 +11,18 @@
 // Chrome puts the promise-based extension APIs on `chrome`, Firefox on `browser`.
 globalThis.browser ??= globalThis.chrome;
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'https://zdress-api.vercel.app';
+
+const clientIdPromise = browser.storage.local.get('clientId').then(async ({ clientId }) => {
+  if (clientId) return clientId;
+  const created = crypto.randomUUID();
+  await browser.storage.local.set({ clientId: created });
+  return created;
+});
+
+async function apiHeaders(headers = {}) {
+  return { ...headers, 'X-Zdress-Client-Id': await clientIdPromise };
+}
 
 async function tryOn({ garmentImageUrl, productTitle, mode }) {
   const { personFileId } = await browser.storage.local.get('personFileId');
@@ -23,11 +34,11 @@ async function tryOn({ garmentImageUrl, productTitle, mode }) {
   try {
     res = await fetch(`${API_BASE}/api/tryon`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ personFileId, garmentImageUrl, productTitle, mode }),
     });
   } catch {
-    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the Zdress server. Is it running on port 3000?' };
+    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach Zdress right now. Check your connection and try again.' };
   }
 
   const data = await res.json().catch(() => ({}));
@@ -48,14 +59,14 @@ async function tryOutfit({ items }) {
   try {
     res = await fetch(`${API_BASE}/api/outfit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         personFileId,
         items: items.map((i) => ({ garmentImageUrl: i.imageUrl, productTitle: i.title })),
       }),
     });
   } catch {
-    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach the Zdress server. Is it running on port 3000?' };
+    return { ok: false, code: 'NO_SERVER', error: 'Can’t reach Zdress right now. Check your connection and try again.' };
   }
 
   const data = await res.json().catch(() => ({}));
@@ -75,11 +86,11 @@ async function saveLook(payload) {
   try {
     res = await fetch(`${API_BASE}/api/looks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
   } catch {
-    return { ok: false, error: 'Can’t reach the Zdress server.' };
+    return { ok: false, error: 'Can’t reach Zdress right now.' };
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return { ok: false, error: data.error || 'Could not save that look.' };
@@ -113,12 +124,90 @@ function openPanel(windowId) {
     : browser.sidebarAction.open();
 }
 
+/*
+ * ── Sites the user opts into ───────────────────────────────────────────────
+ *
+ * The manifest names the retailers we ship adapters for, but sites.js also
+ * carries a generic Shopify adapter, and there is no list of Shopify domains to
+ * put in a manifest. So those stores are reached the other way round: the user
+ * grants one origin from the side panel, and the content script is injected
+ * programmatically from here.
+ *
+ * `permissions.contains` is the only record of which sites those are. Storing a
+ * list alongside it would drift the moment someone revokes a site from the
+ * browser's own extension settings, which never tells us.
+ *
+ * Declared retailers are not affected: `content_scripts.matches` are not host
+ * permissions, so `contains` is false for Myntra and the injection path below
+ * never touches it. The guard in content.js covers the rest.
+ */
+
+const INJECT_FILES = ['sites.js', 'content.js'];
+
+/** True once the content script is running and an adapter claimed the page. */
+async function injectInto(tabId) {
+  await browser.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
+  await browser.scripting.executeScript({ target: { tabId }, files: INJECT_FILES });
+
+  // Runs in the same isolated world the files just landed in, so it can ask
+  // sites.js directly whether anything matched rather than guessing from the URL.
+  const [{ result } = {}] = await browser.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const site = window.ZdressSites?.siteFor();
+      return site ? { matched: true, label: site.label } : { matched: false };
+    },
+  });
+  return result || { matched: false };
+}
+
+function originOf(url) {
+  try {
+    const u = new URL(url);
+    return /^https?:$/.test(u.protocol) ? `${u.origin}/*` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Called from the panel once the user has granted the origin. The grant has to
+ * happen there: `permissions.request` needs a user gesture on an extension page,
+ * which a background worker doesn't have.
+ */
+async function enableSite({ tabId, url }) {
+  const origin = originOf(url);
+  if (!origin) return { ok: false, error: 'Zdress can only be enabled on a normal web page.' };
+
+  const granted = await browser.permissions.contains({ origins: [origin] });
+  if (!granted) return { ok: false, error: 'Zdress needs permission for this site to switch itself on.' };
+
+  try {
+    return { ok: true, ...(await injectInto(tabId)) };
+  } catch {
+    return { ok: false, error: 'Could not start Zdress on this page. Try reloading it.' };
+  }
+}
+
+/*
+ * A granted origin has to survive the next visit, and nothing re-injects for us.
+ * Firing on `complete` rather than earlier means the Shopify detector in sites.js
+ * is reading a painted grid rather than an empty shell.
+ */
+browser.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+  if (info.status !== 'complete') return;
+  const origin = originOf(tab?.url);
+  if (!origin) return;
+  if (!(await browser.permissions.contains({ origins: [origin] }))) return;
+  injectInto(tabId).catch(() => {}); // tab may have navigated away again
+});
+
 /** Screening only — tells the panel a garment's slot without spending a render. */
 async function classify({ garmentImageUrl, productTitle }) {
   try {
     const res = await fetch(`${API_BASE}/api/classify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ garmentImageUrl, productTitle }),
     });
     if (!res.ok) return { ok: false };
@@ -137,11 +226,11 @@ async function advice({ lookId, resultUrl, context, messages, opinion }) {
   try {
     res = await fetch(`${API_BASE}/api/advice`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ lookId, resultUrl, context, messages, opinion }),
     });
   } catch {
-    return { ok: false, error: 'Can’t reach the Zdress server. Is it running on port 3000?' };
+    return { ok: false, error: 'Can’t reach Zdress right now. Check your connection and try again.' };
   }
 
   const data = await res.json().catch(() => ({}));
@@ -170,6 +259,10 @@ async function openStylist({ payload, resultUrl }, sender) {
 }
 
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === 'ENABLE_SITE') {
+    enableSite(msg).then(sendResponse);
+    return true;
+  }
   if (msg?.type === 'ADVICE') {
     advice(msg).then(sendResponse);
     return true;

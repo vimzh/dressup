@@ -24,6 +24,16 @@ globalThis.browser ??= globalThis.chrome;
 (() => {
   'use strict';
 
+  /*
+   * This file arrives two ways: declared in the manifest for the retailers we
+   * ship adapters for, and injected by `scripting.executeScript` on a site the
+   * user has opted into. Both land in the same isolated world, so on an opted-in
+   * page that also happens to be a declared match, this would otherwise run
+   * twice and leave two MutationObservers fighting over the same grid.
+   */
+  if (window.__zdressLoaded) return;
+  window.__zdressLoaded = true;
+
   const site = window.ZdressSites?.siteFor();
   if (!site) return; // not a supported retailer
 
@@ -298,7 +308,7 @@ globalThis.browser ??= globalThis.chrome;
             res?.code === 'NO_PERSON'
               ? 'Open Zdress from your toolbar to add your photo.'
               : res?.code === 'NO_SERVER'
-              ? 'Start it with <code>npm run dev:api</code> from the repository root.'
+              ? 'Check your connection and try again.'
               : '',
         });
         return;

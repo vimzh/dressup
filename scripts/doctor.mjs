@@ -3,9 +3,8 @@
  * Answers "why isn't it working?" without opening a browser.
  *
  * Every check here maps to a failure that is silent or misleading at the point
- * you hit it: a missing key surfaces as a failed render, a busy port 3000
- * surfaces as a try-on that does nothing (the extension only ever calls
- * localhost:3000), an unbuilt dist/ surfaces as a Chrome load error.
+ * you hit it: a missing key surfaces as a failed local API call, a busy port
+ * blocks the local API, and an unbuilt dist/ surfaces as a Chrome load error.
  *
  * Key *values* are never printed — only whether they are set.
  *

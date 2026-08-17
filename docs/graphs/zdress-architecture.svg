@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description" data-layout-version="cloudy-native-v2" data-spec-sha256="7d3a0f10e03e55a7900c65c97794b0f77cbdb6b98f5924a3e6098a71b4e21516">
   <title id="title">How Zdress turns browsing into trying on</title>
-  <desc id="description">Architecture flow from a supported fashion retailer through the Zdress extension, local API, OpenAI screening, YouCam rendering, in-page results, and saved collections.</desc>
+  <desc id="description">Architecture flow from a supported fashion retailer through the Zdress extension, hosted API, OpenAI screening, YouCam rendering, in-page results, and saved collections.</desc>
   <defs>
     <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
     <marker id="arrow-violet" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/></marker>
@@ -24,7 +24,7 @@
   </defs>
   <rect width="1600" height="900" fill="#fffdf8"/>
   <text x="54" y="62" class="title">How Zdress turns browsing into trying on</text>
-  <text x="54" y="94" class="subtitle">The extension keeps the shopper in context while a local API screens, renders, and saves each look</text>
+  <text x="54" y="94" class="subtitle">The extension keeps the shopper in context while a hosted API screens, renders, and saves each look</text>
   <rect data-zone-id="store" x="42.0" y="130" width="331.8" height="690" rx="28" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" stroke-dasharray="8 8"/>
   <text x="62.0" y="160" class="zone-label" fill="#1e40af">1 · WHERE THE DECISION HAPPENS</text>
   <rect data-zone-id="zdress" x="401.8" y="130" width="530.9" height="690" rx="28" fill="#faf5ff" stroke="#c4b5fd" stroke-width="2" stroke-dasharray="8 8"/>
@@ -51,7 +51,7 @@
   <text x="667.3" y="387.0" text-anchor="middle" class="node-title">The service worker carries the request</text>
   <text x="667.3" y="418.0" text-anchor="middle" class="node-body">person · garment · outfit · save</text>
   <rect class="node" data-node-id="api" data-status="implemented" x="431.8" y="502.0" width="470.9" height="112.0" rx="22" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
-  <text x="667.3" y="537.0" text-anchor="middle" class="node-title">The local API normalizes and</text>
+  <text x="667.3" y="537.0" text-anchor="middle" class="node-title">The hosted API normalizes and</text>
   <text x="667.3" y="563.0" text-anchor="middle" class="node-title">orchestrates</text>
   <text x="667.3" y="594.0" text-anchor="middle" class="node-body">keys stay outside the extension</text>
   <rect class="node" data-node-id="screen" data-status="external" x="990.7" y="201.0" width="537.3" height="114.0" rx="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
@@ -70,5 +70,5 @@
   <text x="1259.4" y="719.0" text-anchor="middle" class="node-body">render file · products · collection</text>
   <text x="1259.4" y="749.0" text-anchor="middle" class="node-note">The render survives temporary API URLs</text>
   <rect x="54" y="844" width="1492" height="36" rx="14" fill="#f5f5f4" stroke="#d6d3d1"/>
-  <text x="800" y="868" text-anchor="middle" class="footer">The extension keeps shopping context. The local API keeps secrets and saved files.</text>
+  <text x="800" y="868" text-anchor="middle" class="footer">The extension keeps shopping context. The hosted API keeps secrets and saved files.</text>
 </svg>

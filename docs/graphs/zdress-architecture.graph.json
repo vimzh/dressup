@@ -1,8 +1,8 @@
 {
   "title": "How Zdress turns browsing into trying on",
-  "subtitle": "The extension keeps the shopper in context while a local API screens, renders, and saves each look",
-  "description": "Architecture flow from a supported fashion retailer through the Zdress extension, local API, OpenAI screening, YouCam rendering, in-page results, and saved collections.",
-  "footer": "The extension keeps shopping context. The local API keeps secrets and saved files.",
+  "subtitle": "The extension keeps the shopper in context while a hosted API screens, renders, and saves each look",
+  "description": "Architecture flow from a supported fashion retailer through the Zdress extension, hosted API, OpenAI screening, YouCam rendering, in-page results, and saved collections.",
+  "footer": "The extension keeps shopping context. The hosted API keeps secrets and saved files.",
   "zones": [
     {
       "id": "store",
@@ -74,7 +74,7 @@
     {
       "id": "api",
       "zone": "zdress",
-      "title": "The local API normalizes and orchestrates",
+      "title": "The hosted API normalizes and orchestrates",
       "body": [
         "keys stay outside the extension"
       ],

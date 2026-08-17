@@ -5,10 +5,16 @@
   "description": "See yourself in anything you find while shopping, without leaving the page. Powered by YouCam Apparel VTO.",
   "permissions": [
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://zdress-api.vercel.app/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
   ],
   "action": {
     "default_title": "Zdress",
@@ -37,6 +43,7 @@
         "*://*.snitch.co.in/*",
         "*://*.bewakoof.com/*",
         "*://*.maxfashion.in/*",
+        "*://*.lifestylestores.com/*",
         "*://*.libas.in/*",
         "*://*.pinterest.com/*",
         "*://*.pinterest.co.uk/*",

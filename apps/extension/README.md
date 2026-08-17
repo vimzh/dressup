@@ -13,7 +13,7 @@ apps/extension/
 ├── chrome/manifest.json       # Chrome-only permissions and side panel config
 ├── firefox/manifest.json      # Firefox sidebar and Gecko metadata
 ├── shared/
-│   ├── background.js          # calls the local API and manages browser-level state
+│   ├── background.js          # calls the hosted API and manages browser-level state
 │   ├── content.js             # injects controls and mounts results on retailer pages
 │   ├── content.css            # retailer-safe extension styles
 │   ├── sidepanel.html/js      # photo, outfit, stylist, and saved collection UI
@@ -38,10 +38,16 @@ The outputs are:
 
 Use `npm run package` to create distributable archives.
 
-## Load locally
+## Install the judge build
+
+No Node.js, API keys, or local server are required. From the [project README](../../README.md), download the macOS installer or run its one-line Terminal command. The installer downloads the current Chrome build, opens `chrome://extensions`, reveals the unpacked folder, and copies its path.
+
+Chrome still requires one final manual approval: enable **Developer mode**, choose **Load unpacked**, and select the folder the installer revealed.
+
+## Build from source
 
 Chrome: open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `dist/chrome`.
 
 Firefox: open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `dist/firefox/manifest.json`.
 
-The local API must be running at `http://localhost:3000`. See the [project README](../../README.md) for setup and architecture.
+The production build uses `https://zdress-api.vercel.app`. See the [project README](../../README.md) for architecture and local API development.

@@ -2,12 +2,8 @@
 /**
  * Runs the API and the web app together, under one Ctrl-C.
  *
- * The API's port is not a preference. The extension ships
- * `API_BASE = 'http://localhost:3000'` (apps/extension/shared/background.js),
- * so if anything else holds 3000 every try-on fails in the browser with no
- * useful message — which is why this refuses to start rather than quietly
- * moving the API somewhere the extension will never look. The web app is the
- * one that gives way, on 3001.
+ * The local API stays on 3000 to match development docs and curl fixtures. The
+ * production extension uses the hosted API. The web app defaults to 3001.
  *
  *   npm run dev                  both
  *   npm run dev:api              just the API
@@ -22,7 +18,6 @@ import { NPM, paint, portInUse, prefixStream, warn } from './lib/proc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Hardcoded in the extension. Changing it here changes nothing there. */
 const API_PORT = 3000;
 const WEB_PORT = Number(process.env.WEB_PORT) || 3001;
 
@@ -45,7 +40,7 @@ async function preflight() {
 
   if (await portInUse(API_PORT)) {
     console.error(
-      `${paint('red', '✗')} Port ${API_PORT} is already in use, and the extension only ever calls localhost:${API_PORT}.`
+      `${paint('red', '✗')} Port ${API_PORT} is already in use, so the local API cannot start.`
     );
     console.error(`  Free it first:  lsof -ti:${API_PORT} | xargs kill`);
     blocked = true;

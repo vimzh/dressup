@@ -47,6 +47,28 @@ function titleFromSlug(href, { minWords = 3 } = {}) {
 const text = (root, sel) => (sel && root?.querySelector(sel)?.textContent?.trim()) || '';
 const uniq = (arr) => [...new Set(arr)];
 
+/**
+ * Shopify's image CDN takes a width two different ways, and they are not
+ * interchangeable — measured on live stores:
+ *
+ *   - Legacy filename token, `…_3840x.jpg` (Gymshark's theme). Swapping the
+ *     token to `_1200x.` measured 1200x1431. Appending `&width=1200` alongside
+ *     it is silently ignored and returns the 1692x2018 master — the same trap
+ *     ASOS's Scene7 preset sets, so the token has to be rewritten, not added to.
+ *   - Query parameter, `?width=300` (Allbirds, Libas). Raising it measured
+ *     1200x1200.
+ *
+ * Themes emit one or the other, and a few emit neither, so all three cases are
+ * handled. Unlike Etsy and Landmark, asking too big is safe here: Shopify clamps
+ * at the master rather than upscaling (width=4000 on a 2000px master returned
+ * 2000x2000), so there is no risk of feeding the try-on engine upscaled mush.
+ */
+function shopifyHighRes(url, width = 1200) {
+  if (/_\d+x\d*\./.test(url)) return url.replace(/_\d+x\d*\./, `_${width}x.`);
+  if (/[?&]width=\d+/.test(url)) return url.replace(/([?&]width=)\d+/, `$1${width}`);
+  return `${url}${url.includes('?') ? '&' : '?'}width=${width}`;
+}
+
 /** Reads a CSS background-image URL, for grids that paint rather than use <img>. */
 function bgUrl(el) {
   const m = el && getComputedStyle(el).backgroundImage?.match(/url\(["']?(.*?)["']?\)/);
@@ -70,6 +92,51 @@ function myntraHighRes(url, transform = 'q_90,w_1080,c_limit,fl_progressive') {
     return url;
   }
 }
+
+/**
+ * Landmark Group runs Max Fashion and Lifestyle off one platform, and both were
+ * probed live: same Material-UI grid (48 cards under `.product`, sitting beside
+ * a `jss…` build hash), same `/p/` product links, same landmarkshops CDN, same
+ * Cloudflare `/cdn-cgi/image/` transform. Every selector below matched unchanged
+ * on each — only the CDN subdomain (`media.` vs `media-ea.`) and the path prefix
+ * (`max-new/` vs `lifestyle-new/`) differ, and nothing here depends on either.
+ *
+ * Two entries from one factory rather than one entry with a wider `match`, so a
+ * saved look records the brand it actually came from. (The `anf` adapter below
+ * covers two brands under a single label and mislabels Hollister as a result.)
+ *
+ * Easybuy, the group's third India storefront, is deliberately absent — the
+ * domain is parked and redirects to a sedo.com listing page.
+ */
+const landmarkSites = [
+  ['maxfashion', 'Max Fashion', /(^|\.)maxfashion\.in$/],
+  ['lifestyle', 'Lifestyle', /(^|\.)lifestylestores\.com$/],
+].map(([id, label, host]) => ({
+  id,
+  label,
+  match: (h) => host.test(h),
+  // Material-UI jss class names are build-generated; `product` is the stable one.
+  cards: () => [...document.querySelectorAll('.MuiBox-root.product, div.product')],
+  imageBox: (card) => card.querySelector('a'),
+  image: (card) => card.querySelector('img[src*="landmarkshops"]'),
+  /*
+   * Both platforms prefix the slug with a constant "SHOP" segment
+   * ("/in/en/SHOP-Max-Black-Women-Striped-Polo-T-shirt-For-Women/p/…"), which is
+   * noise to the classifier. The rest of the slug is the better title of the two
+   * on offer: the image alt text is just the garment ("Women Striped Polo
+   * T-shirt") and drops the brand.
+   */
+  title: (card) =>
+    titleFromSlug(card.querySelector('a[href*="/p/"]')?.getAttribute('href')).replace(/^SHOP\s+/i, ''),
+  link: (card) => card.querySelector('a[href*="/p/"]')?.getAttribute('href'),
+  /*
+   * Cloudflare image resizing: /cdn-cgi/image/h=739,w=499,q=85,fit=cover/
+   * Measured on a 1450x2100 master: w=1080 -> 1080x1564. Do not raise it —
+   * w=2000 returns 2000x2896 of upscaled mush, the same way Etsy's il_1588xN
+   * does, and upscaled input is worse than small input for try-on.
+   */
+  highRes: (url) => url.replace(/\/cdn-cgi\/image\/[^/]+\//, '/cdn-cgi/image/w=1080,q=90,fit=cover/'),
+}));
 
 const SITES = [
   {
@@ -190,19 +257,7 @@ const SITES = [
     highRes: (url) => url.replace(/\/t\d+\//, '/t1080/'),
   },
 
-  {
-    id: 'maxfashion',
-    label: 'Max Fashion',
-    match: (h) => /(^|\.)maxfashion\.in$/.test(h),
-    // Material-UI jss class names are build-generated; `product` is the stable one.
-    cards: () => [...document.querySelectorAll('.MuiBox-root.product, div.product')],
-    imageBox: (card) => card.querySelector('a'),
-    image: (card) => card.querySelector('img[src*="landmarkshops"]'),
-    title: (card) => titleFromSlug(card.querySelector('a[href*="/p/"]')?.getAttribute('href')),
-    link: (card) => card.querySelector('a[href*="/p/"]')?.getAttribute('href'),
-    // Cloudflare image resizing: /cdn-cgi/image/h=739,w=499,q=85,fit=cover/
-    highRes: (url) => url.replace(/\/cdn-cgi\/image\/[^/]+\//, '/cdn-cgi/image/w=1080,q=90,fit=cover/'),
-  },
+  ...landmarkSites,
 
   {
     id: 'libas',
@@ -482,6 +537,75 @@ const SITES = [
      * width directly measured 1200x1200.
      */
     highRes: (url) => `${url.split('?')[0]}?wid=1200`,
+  },
+
+  /*
+   * ── Any Shopify storefront ────────────────────────────────────────────────
+   *
+   * Last in the list on purpose. `siteFor` returns the first match, so every
+   * hand-written adapter above still wins on its own domain — Libas is a Shopify
+   * store and keeps its bespoke entry. This one is the long tail.
+   *
+   * Matching is on the DOM rather than the hostname, because there is no list of
+   * Shopify domains to test a hostname against. That is safe here: `siteFor` has
+   * exactly one caller (content.js, once, at document_idle) and it passes no
+   * hostname, so nothing else can trip over a match that reads the document.
+   *
+   * The generic contract was probed on three unrelated stores and matched the
+   * hand-written adapters' own card counts:
+   *
+   *   Libas     60 cards — same 60 its `.grid-product__content` selector finds
+   *   Gymshark  70 cards — legacy `_3840x` filename token
+   *   Allbirds  27 cards — `?width=` parameter, and footwear
+   *
+   * Two limits worth knowing. Headless Shopify is not covered: SNITCH is a
+   * Shopify store but routes products as `/men-shirts/<slug>/<id>/buy` with no
+   * `/products/` anywhere, which is why its bespoke adapter stays. And a store
+   * that paints its grid after `document_idle` is missed entirely, because
+   * content.js reads `siteFor()` once and returns early when it is null.
+   */
+  {
+    id: 'shopify',
+    /*
+     * Every other adapter is one brand with one name; this one is whatever store
+     * the user is standing in. A getter keeps `site.label` a plain property read
+     * for content.js while still naming the shop on a saved look.
+     */
+    get label() {
+      return location.hostname.replace(/^www\./, '');
+    },
+    match: () =>
+      !!document.querySelector(
+        'img[src*="/cdn/shop/"], script[src*="cdn.shopify.com"], link[href*="cdn.shopify.com"]'
+      ),
+    /*
+     * Product image -> the `/products/` link wrapping it. The anchor itself is
+     * the card: its parent works equally well on the stores probed (70 anchors,
+     * 70 parents on Gymshark) but risks collapsing a whole rail into one card on
+     * a theme that nests differently, and content.js already expects to mount
+     * controls inside an <a> and swallow the click.
+     *
+     * Modern Shopify serves images from the shop's own domain under `/cdn/shop/`
+     * rather than from cdn.shopify.com, so both forms are matched. Anchoring on
+     * the product link also keeps site chrome out: the logo is a `/cdn/shop/`
+     * image too, but it links to `/`.
+     */
+    cards: () =>
+      uniq(
+        [...document.images]
+          .filter((i) => /\/cdn\/shop\/|cdn\.shopify\.com/.test(i.src))
+          .map((i) => i.closest('a[href*="/products/"]'))
+          .filter(Boolean)
+      ),
+    imageBox: (card) => card,
+    image: (card) =>
+      [...card.querySelectorAll('img')].find(
+        (i) => /\/cdn\/shop\/|cdn\.shopify\.com/.test(i.src) && !/\.svg($|\?)/i.test(i.src)
+      ),
+    // Themes rarely agree on markup, but the handle is always in the URL.
+    title: (card) => titleFromSlug(card.getAttribute('href')),
+    link: (card) => card.getAttribute('href'),
+    highRes: (url) => shopifyHighRes(url),
   },
 ];
 

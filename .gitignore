@@ -4,4 +4,5 @@ node_modules/
 *.log
 tmp/
 apps/api/data/
+/server/
 dist/
