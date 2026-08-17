@@ -27,6 +27,8 @@ Adapters cover 16 fashion retailers plus Pinterest, including Myntra, AJIO, Flip
 
 <p align="center"><sub>17-second product film · click to open the full-resolution MP4</sub></p>
 
+<img src="docs/readme/zdress-stay-in-flow.jpg" alt="Zdress stays inside the retailer: Try this look controls replace product images with the shopper across retailers, while the AI Expert gives fit, colour and styling recommendations">
+
 ### The same flow on every supported site
 
 1. **Browse:** a retailer adapter finds stable product cards without taking over the page.
