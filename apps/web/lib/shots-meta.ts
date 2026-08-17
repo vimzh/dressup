@@ -25,11 +25,17 @@ export const SHOTS = {
     ratio: "730 / 1200",
     size: "730 × 1200",
   },
+  expertContext: {
+    label:
+      "Actual Z-dress side panel — a generated try-on with the AI expert analysis opening below it",
+    ratio: "560 / 817",
+    size: "560 × 817",
+  },
   expertOpinion: {
     label:
-      "Editorial expert-opinion illustration — silhouette, hem break and colours that work",
-    ratio: "16 / 9",
-    size: "1600 × 900",
+      "Actual Z-dress AI expert interface — fit feedback, colour pairings, suggestions and follow-up questions",
+    ratio: "560 / 817",
+    size: "560 × 817",
   },
   fitPanel: {
     label:

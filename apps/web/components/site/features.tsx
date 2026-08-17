@@ -90,18 +90,6 @@ export function Features({ shots }: { shots: ResolvedShots }) {
           <FeatureCard
             className="lg:col-span-3"
             index={5}
-            media={<Shot name="expertOpinion" src={shots.expertOpinion} />}
-            title="Then the question a try-on can't answer"
-          >
-            <p>
-              Every result includes a concise read on silhouette, proportion
-              and useful colours, then accepts a follow-up question.
-            </p>
-          </FeatureCard>
-
-          <FeatureCard
-            className="lg:col-span-3"
-            index={6}
             media={
               <div className="mx-auto grid max-w-2xl grid-cols-2 items-start gap-3">
                 <Shot name="collections" src={shots.collections} />

@@ -1,4 +1,5 @@
 import { EdgeGlow } from "@/components/site/edge-glow";
+import { ExpertOpinion } from "@/components/site/expert-opinion";
 import { Features } from "@/components/site/features";
 import { Footer } from "@/components/site/footer";
 import { Hero } from "@/components/site/hero";
@@ -36,6 +37,7 @@ export default function Home() {
         </section>
         <Sequence shots={shots} />
         <Features shots={shots} />
+        <ExpertOpinion shots={shots} />
         <HowItWorks />
         <Footer />
       </main>

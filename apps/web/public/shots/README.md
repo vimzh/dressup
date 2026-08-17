@@ -12,7 +12,8 @@ Accepted extensions: `.png` `.jpg` `.jpeg` `.webp` `.avif`
 | `fitPanel.png` | 1:1 | Side panel — a top from one store and jeans from another, ticked, **Try this fit (2)** |
 | `fitResult.png` | 2:3 | The composed cross-store render with the applied pieces listed underneath |
 | `collections.png` | 1:2 | Saved tab — twelve looks, mixed retailers, filed into collections |
-| `expertOpinion.png` | 16:9 | Editorial stylist read — silhouette, hem break and colours that work |
+| `expertContext.jpg` | 560:817 | Actual side panel — the generated try-on and the expert analysis opening below it |
+| `expertOpinion.jpg` | 560:817 | Actual expert UI — fit feedback, colour pairings, suggestions and follow-up prompts |
 | `uploadOnce.png` | 1:1 | One uploaded portrait branching into several garment choices |
 | `sourceIntegrity.png` | 1:1 | The same garment preserved from source to fitted result |
 

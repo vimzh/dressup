@@ -41,6 +41,16 @@ Selections live in extension storage instead of the current webpage. A shopper c
   <img src="apps/web/public/brand/zdress-layering.webp" width="680" alt="Illustration of separate garments being layered into one Zdress outfit">
 </p>
 
+### Ask the AI fashion expert
+
+The expert analyzes the generated try-on rather than the catalogue model. It gives a concise read on silhouette and proportion, suggests useful colour pairings, and keeps the conversation open for follow-up questions.
+
+<p align="center">
+  <img src="apps/web/public/shots/expertContext.jpg" width="360" alt="A real Z-dress try-on with the AI expert opening below it">
+  &nbsp;&nbsp;
+  <img src="apps/web/public/shots/expertOpinion.jpg" width="360" alt="The Z-dress AI expert interface with fit feedback, colour pairings and follow-up prompts">
+</p>
+
 ### Save collections and keep the shopping trail
 
 YouCam result URLs are temporary, so Zdress stores the image file locally. Every saved look also keeps its source products and links; shoppers can open those listings again whenever they revisit the collection.
@@ -125,27 +135,39 @@ Each deployable unit keeps its own package manifest and lockfile. The root packa
 - A YouCam API key
 - An OpenAI API key
 
-### 1. Install dependencies
+### 1. Set up
 
 ```bash
 git clone https://github.com/vimzh/dressup.git
 cd dressup
-
-npm install --prefix apps/api
-npm install --prefix apps/web
+npm run setup
 ```
 
-The extension build uses Node's standard library and has no install step.
+`setup` installs both apps, creates `apps/api/.env` from the example, and builds
+the extension for Chrome and Firefox. It is safe to re-run — every step is a
+no-op once done. The extension build uses Node's standard library only and has
+no install step of its own.
 
-### 2. Configure and start the local API
+### 2. Add your keys and start
+
+Put `YOUCAM_API_KEY` and `OPENAI_API_KEY` into `apps/api/.env`, then:
 
 ```bash
-cp apps/api/.env.example apps/api/.env
-# Add YOUCAM_API_KEY and OPENAI_API_KEY to apps/api/.env
-npm run dev:api
+npm run dev
 ```
 
-Verify it at `http://localhost:3000/api/health`.
+That runs the API on **:3000** and the landing page on **:3001** under a single
+Ctrl-C. Port 3000 is not configurable: the extension ships
+`API_BASE = 'http://localhost:3000'`, so `dev` refuses to start rather than move
+the API somewhere the extension will never look.
+
+Stuck? `npm run doctor` checks Node, installs, keys, both extension builds and
+the live API in one pass, and prints the fix for whatever it finds. It never
+prints key values, only whether they are set.
+
+```bash
+npm run doctor
+```
 
 ### 3. Fastest macOS install
 
@@ -181,21 +203,26 @@ Upload a clear, front-facing photo from the Zdress side panel, then open a suppo
 
 ### 5. Run the landing page
 
+`npm run dev` already serves it on `http://localhost:3001`. To run it alone:
+
 ```bash
 npm run dev:web
 ```
 
-Open `http://localhost:3001` if the API already owns port 3000. Next.js will print the actual port it selected.
-
 ## Useful commands
 
 ```bash
+npm run setup            # install both apps, seed .env, build the extension
+npm run doctor           # diagnose Node, installs, keys, dist/, live API
+npm run dev              # API :3000 + web :3001, one Ctrl-C for both
+npm run dev:api          # local Express API with watch mode
+npm run dev:web          # Next.js development server alone
 npm run build            # extension bundles + production web build
 npm run lint             # web ESLint + Firefox extension lint
 npm run package          # distributable Chrome and Firefox archives
-npm run dev:api          # local Express API with watch mode
-npm run dev:web          # Next.js development server
 ```
+
+`WEB_PORT=4000 npm run dev` moves the web app; the API stays on 3000.
 
 ## Current hackathon boundaries
 
