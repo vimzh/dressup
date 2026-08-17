@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="apps/web/public/brand/zdress-mark.png" width="112" alt="Zdress hanger mark">
-</p>
-
 <h1 align="center">Zdress</h1>
 
 <p align="center"><strong>Virtual try-on where people already shop.</strong></p>
@@ -23,43 +19,19 @@ Most virtual try-on demos ask shoppers to leave the store, upload a photo, and p
 
 Adapters cover 16 fashion retailers plus Pinterest, including Myntra, AJIO, Flipkart, Amazon, Nykaa Fashion, ASOS, H&M, Zalando, Abercrombie and Hollister.
 
-<img src="apps/web/public/brand/zdress-journey.webp" alt="Zdress journey from retailer grid to virtual try-on and saved wardrobe">
+## Product proof
 
-## Product demo
+### Browse, try on, and build a fit
 
-### Try on products without leaving the grid
+The extension stays inside the retailer page: card-level controls preserve the shopping context, independent renders run in parallel, and selections from different stores become one ordered outfit.
 
-The extension injects controls into the retailer's own cards. The shopper keeps the page, comparison set, price, and product context in view while trying on multiple items.
+<img src="docs/readme/zdress-product-flow.jpg" alt="Zdress product flow showing in-page controls, parallel try-ons, cross-store selection, and a composed outfit">
 
-<img src="apps/web/public/shots/heroGrid.png" alt="Zdress try-on controls and rendered results inside a fashion retailer grid">
+### Understand the result and keep the trail
 
-### Build one look across multiple stores
+The AI expert reads the generated try-on—not the catalogue model—then explains fit, proportions, and colour pairings. Saved collections keep the rendered image and every source product link after YouCam's temporary URL expires.
 
-Selections live in extension storage instead of the current webpage. A shopper can pick pieces from different retailers and render them in a safe layer order: lower body, upper body, then shoes.
-
-<p align="center">
-  <img src="apps/web/public/brand/zdress-layering.webp" width="680" alt="Illustration of separate garments being layered into one Zdress outfit">
-</p>
-
-### Ask the AI fashion expert
-
-The expert analyzes the generated try-on rather than the catalogue model. It gives a concise read on silhouette and proportion, suggests useful colour pairings, and keeps the conversation open for follow-up questions.
-
-<p align="center">
-  <img src="apps/web/public/shots/expertContext.jpg" width="360" alt="A real Z-dress try-on with the AI expert opening below it">
-  &nbsp;&nbsp;
-  <img src="apps/web/public/shots/expertOpinion.jpg" width="360" alt="The Z-dress AI expert interface with fit feedback, colour pairings and follow-up prompts">
-</p>
-
-### Save collections and keep the shopping trail
-
-YouCam result URLs are temporary, so Zdress stores the image file locally. Every saved look also keeps its source products and links; shoppers can open those listings again whenever they revisit the collection.
-
-<p align="center">
-  <img src="apps/web/public/shots/collections.webp" width="360" alt="Zdress saved collections panel">
-  &nbsp;&nbsp;
-  <img src="apps/web/public/shots/collectionsDetail.webp" width="360" alt="A saved Zdress look with its original product links">
-</p>
+<img src="docs/readme/zdress-decision-layer.jpg" alt="Zdress decision layer showing AI fashion advice, saved collections, retained source links, upload-once reuse, and source-faithful garments">
 
 ## How it works
 
